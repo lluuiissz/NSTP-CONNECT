@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function POST(request: Request) {
   try {
     const { email, otp } = await request.json();
@@ -8,7 +18,7 @@ export async function POST(request: Request) {
     if (!email || !otp) {
       return NextResponse.json(
         { error: 'Email and OTP are required.' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -42,12 +52,15 @@ export async function POST(request: Request) {
     // Send the email
     await transporter.sendMail(mailOptions);
 
-    return NextResponse.json({ success: true, message: 'OTP sent successfully' });
+    return NextResponse.json(
+      { success: true, message: 'OTP sent successfully' },
+      { headers: corsHeaders }
+    );
   } catch (error: any) {
     console.error('Error sending OTP email:', error);
     return NextResponse.json(
       { error: 'Failed to send OTP email', details: error.message },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
