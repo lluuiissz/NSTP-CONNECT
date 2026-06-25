@@ -1,0 +1,134 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { Database, Search, Award, Clock } from 'lucide-react';
+
+export default function NstpRecordsPage() {
+  const [students, setStudents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchVerifiedStudents();
+  }, []);
+
+  const fetchVerifiedStudents = async () => {
+    try {
+      // Fetch verified users and their volunteer logs to aggregate service hours
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          *,
+          volunteer_logs (service_hours, status)
+        `)
+        .eq('is_verified', true)
+        .neq('role', 'admin')
+        .neq('role', 'nstp')
+        .order('full_name', { ascending: true });
+
+      if (error) throw error;
+
+      // Calculate total service hours per student
+      const processedData = (data || []).map(student => {
+        const totalHours = (student.volunteer_logs || [])
+          .filter((log: any) => log.status === 'completed' || log.status === 'active') // Summing up valid logs
+          .reduce((sum: number, log: any) => sum + Number(log.service_hours || 0), 0);
+        
+        return { ...student, totalHours };
+      });
+
+      setStudents(processedData);
+    } catch (err) {
+      console.error("Error fetching students:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredStudents = students.filter(s => 
+    s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    s.municipality?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.nstp_component?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+            <Database className="w-8 h-8 mr-3 text-indigo-600" />
+            Verified Masterlist
+          </h1>
+          <p className="text-gray-500 mt-2">Manage verified NSTP graduates and monitor their accumulated service hours.</p>
+        </div>
+        
+        <div className="relative">
+          <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search name, location, or component..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[300px]"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="p-4 font-semibold text-gray-600">Student Name</th>
+                <th className="p-4 font-semibold text-gray-600">Location</th>
+                <th className="p-4 font-semibold text-gray-600">Component</th>
+                <th className="p-4 font-semibold text-gray-600 text-center">Total Service Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-gray-500">Loading records...</td>
+                </tr>
+              ) : filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-gray-500">No records found.</td>
+                </tr>
+              ) : (
+                filteredStudents.map((student) => (
+                  <tr key={student.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <td className="p-4">
+                      <div className="font-semibold text-gray-900">{student.full_name}</div>
+                      <div className="text-sm text-gray-500">{student.email}</div>
+                    </td>
+                    <td className="p-4 text-sm text-gray-700">
+                      {student.barangay}, {student.municipality}
+                    </td>
+                    <td className="p-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {student.nstp_component || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="inline-flex items-center justify-center space-x-1">
+                        {student.totalHours >= 40 ? (
+                          <Award className="w-5 h-5 text-yellow-500" />
+                        ) : (
+                          <Clock className="w-5 h-5 text-indigo-400" />
+                        )}
+                        <span className={`font-bold ${student.totalHours >= 40 ? 'text-yellow-600' : 'text-indigo-600'}`}>
+                          {student.totalHours.toFixed(1)} hrs
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
