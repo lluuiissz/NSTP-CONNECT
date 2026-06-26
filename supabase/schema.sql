@@ -104,6 +104,9 @@ CREATE POLICY "Volunteers can update their own logs" ON public.volunteer_logs FO
 -- Notifications
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view notifications" ON public.notifications FOR SELECT USING (true);
+CREATE POLICY "Admins can insert notifications" ON public.notifications FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role IN ('admin', 'nstp'))
+);
 
 -- Enable Realtime for volunteer_logs (Crucial for Live Radar)
 ALTER PUBLICATION supabase_realtime ADD TABLE public.volunteer_logs;
