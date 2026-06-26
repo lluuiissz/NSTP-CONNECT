@@ -36,7 +36,15 @@ export default function NstpRecordsPage() {
       const processedData = (data || []).map(student => {
         const totalHours = (student.volunteer_logs || [])
           .filter((log: any) => log.status === 'completed' || log.status === 'active') // Summing up valid logs
-          .reduce((sum: number, log: any) => sum + Number(log.service_hours || 0), 0);
+          .reduce((sum: number, log: any) => {
+            if (log.status === 'active' && log.created_at) {
+               // Calculate real-time elapsed hours for active sessions
+               const elapsedMs = new Date().getTime() - new Date(log.created_at).getTime();
+               const elapsedHours = elapsedMs / (1000 * 60 * 60);
+               return sum + Math.max(0, elapsedHours);
+            }
+            return sum + Number(log.service_hours || 0);
+          }, 0);
         
         return { ...student, totalHours };
       });

@@ -60,7 +60,14 @@ export default function LguDashboardPage() {
 
       if (logsData) {
         setLogs(logsData)
-        const hours = logsData.reduce((sum, log) => sum + (Number(log.service_hours) || 0), 0)
+        const hours = logsData.reduce((sum, log) => {
+          if (log.status === 'active' && log.created_at) {
+             const elapsedMs = new Date().getTime() - new Date(log.created_at).getTime();
+             const elapsedHours = elapsedMs / (1000 * 60 * 60);
+             return sum + Math.max(0, elapsedHours);
+          }
+          return sum + (Number(log.service_hours) || 0);
+        }, 0)
         setTotalHours(hours)
       }
     } catch (e) {
