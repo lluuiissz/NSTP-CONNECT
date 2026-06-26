@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ClipboardList, Calendar, MapPin, Trash2, Users, Download, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export default function ActivityLogsPage() {
   const [activities, setActivities] = useState<any[]>([]);
@@ -111,7 +111,7 @@ export default function ActivityLogsPage() {
       (a.volunteer_logs?.length || 0).toString()
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 60,
       head: [tableColumn],
       body: tableRows,

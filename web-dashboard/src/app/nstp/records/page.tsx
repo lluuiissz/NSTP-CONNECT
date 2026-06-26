@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Database, Search, Award, Clock, Download, FileText, Ban, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export default function NstpRecordsPage() {
   const [students, setStudents] = useState<any[]>([]);
@@ -146,7 +146,7 @@ export default function NstpRecordsPage() {
       `${s.totalHours.toFixed(1)} hrs`
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 55,
       head: [tableColumn],
       body: tableRows,
