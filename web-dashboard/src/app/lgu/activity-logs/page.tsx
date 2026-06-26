@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ClipboardList, Calendar, MapPin, Trash2, Users, Download } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, Trash2, Users, Download, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export default function ActivityLogsPage() {
   const [activities, setActivities] = useState<any[]>([]);
@@ -46,25 +48,79 @@ export default function ActivityLogsPage() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Activity Title', 'Description', 'Municipality', 'Barangay', 'Date', 'Volunteers Count'];
-    const csvData = activities.map(a => [
-      `"${a.title.replace(/"/g, '""')}"`,
-      `"${(a.description || '').replace(/"/g, '""')}"`,
-      `"${a.municipality}"`,
-      `"${a.barangay}"`,
-      new Date(a.event_date).toLocaleDateString(),
-      a.volunteer_logs?.length || 0
-    ].join(','));
+    const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const totalActivities = activities.length;
+    const totalVols = activities.reduce((sum, a) => sum + (a.volunteer_logs?.length || 0), 0);
+
+    const csvContent = [
+      `"NSTP-CONNECT OFFICIAL REPORT"`,
+      `"Report Type:","Activity Participation Logs"`,
+      `"Generated Date:","${reportDate}"`,
+      `"Total Activities:","${totalActivities}"`,
+      `"Total Volunteer Check-ins:","${totalVols}"`,
+      `""`,
+      `"===================================================================================================="`,
+      `"ACTIVITY TITLE","MUNICIPALITY","BARANGAY","EVENT DATE","TOTAL VOLUNTEERS","DESCRIPTION"`,
+      ...activities.map(a => [
+        `"${a.title.replace(/"/g, '""').toUpperCase()}"`,
+        `"${a.municipality}"`,
+        `"${a.barangay}"`,
+        `"${new Date(a.event_date).toLocaleDateString()}"`,
+        `"${a.volunteer_logs?.length || 0}"`,
+        `"${(a.description || '').replace(/"/g, '""')}"`
+      ].join(','))
+    ];
     
-    const csvString = [headers.join(','), ...csvData].join('\n');
+    const csvString = csvContent.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'activity_participation_report.csv');
+    link.setAttribute('download', `NSTP_Activity_Report_${new Date().getTime()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(37, 99, 235); // Blue 600
+    doc.text("NSTP-CONNECT", 14, 22);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text("Official Activity Participation Report", 14, 30);
+    
+    // Metadata
+    doc.setFontSize(10);
+    doc.text(`Generated Date: ${reportDate}`, 14, 40);
+    doc.text(`Total Activities: ${activities.length}`, 14, 46);
+    const totalVols = activities.reduce((sum, a) => sum + (a.volunteer_logs?.length || 0), 0);
+    doc.text(`Total Volunteer Check-ins: ${totalVols}`, 14, 52);
+
+    // Table
+    const tableColumn = ["Activity Title", "Location", "Event Date", "Volunteers"];
+    const tableRows = activities.map(a => [
+      a.title,
+      `${a.barangay}, ${a.municipality}`,
+      new Date(a.event_date).toLocaleDateString(),
+      (a.volunteer_logs?.length || 0).toString()
+    ]);
+
+    (doc as any).autoTable({
+      startY: 60,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 9 },
+    });
+
+    doc.save(`NSTP_Activity_Report_${new Date().getTime()}.pdf`);
   };
 
   return (
@@ -77,14 +133,24 @@ export default function ActivityLogsPage() {
           </h1>
           <p className="text-gray-500 mt-2">Manage created activities and monitor overall volunteer participation.</p>
         </div>
-        <button
-          onClick={exportToCSV}
-          disabled={isLoading || activities.length === 0}
-          className="flex items-center px-6 py-3 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download className="w-5 h-5 mr-2" />
-          Export CSV Report
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={exportToCSV}
+            disabled={isLoading || activities.length === 0}
+            className="flex items-center px-4 py-2 bg-white text-slate-700 font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            CSV Data
+          </button>
+          <button
+            onClick={exportToPDF}
+            disabled={isLoading || activities.length === 0}
+            className="flex items-center px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileText className="w-5 h-5 mr-2" />
+            Generate PDF
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

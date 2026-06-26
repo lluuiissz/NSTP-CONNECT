@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Database, Search, Award, Clock, Download } from 'lucide-react';
+import { Database, Search, Award, Clock, Download, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export default function NstpRecordsPage() {
   const [students, setStudents] = useState<any[]>([]);
@@ -52,25 +54,75 @@ export default function NstpRecordsPage() {
   );
 
   const exportToCSV = () => {
-    const headers = ['Student Name', 'Email', 'Municipality', 'Barangay', 'NSTP Component', 'Total Service Hours'];
-    const csvData = filteredStudents.map(s => [
-      `"${(s.full_name || '').replace(/"/g, '""')}"`,
-      `"${s.email}"`,
-      `"${s.municipality || 'N/A'}"`,
-      `"${s.barangay || 'N/A'}"`,
-      `"${s.nstp_component || 'N/A'}"`,
-      s.totalHours.toFixed(1)
-    ].join(','));
+    const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const totalStudents = filteredStudents.length;
+
+    const csvContent = [
+      `"NSTP-CONNECT OFFICIAL REPORT"`,
+      `"Report Type:","Verified Student Masterlist"`,
+      `"Generated Date:","${reportDate}"`,
+      `"Total Records:","${totalStudents}"`,
+      `""`,
+      `"===================================================================================================="`,
+      `"STUDENT NAME","EMAIL","MUNICIPALITY","BARANGAY","NSTP COMPONENT","TOTAL SERVICE HOURS"`,
+      ...filteredStudents.map(s => [
+        `"${(s.full_name || '').replace(/"/g, '""').toUpperCase()}"`,
+        `"${s.email}"`,
+        `"${s.municipality || 'N/A'}"`,
+        `"${s.barangay || 'N/A'}"`,
+        `"${s.nstp_component || 'N/A'}"`,
+        `"${s.totalHours.toFixed(1)}"`
+      ].join(','))
+    ];
     
-    const csvString = [headers.join(','), ...csvData].join('\n');
+    const csvString = csvContent.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'volunteer_masterlist_report.csv');
+    link.setAttribute('download', `NSTP_Masterlist_Report_${new Date().getTime()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(79, 70, 229); // Indigo 600
+    doc.text("NSTP-CONNECT", 14, 22);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text("Official Student Masterlist Report", 14, 30);
+    
+    // Metadata
+    doc.setFontSize(10);
+    doc.text(`Generated Date: ${reportDate}`, 14, 40);
+    doc.text(`Total Records: ${filteredStudents.length}`, 14, 46);
+
+    // Table
+    const tableColumn = ["Student Name", "Location", "Component", "Hours"];
+    const tableRows = filteredStudents.map(s => [
+      s.full_name,
+      `${s.barangay || 'N/A'}, ${s.municipality || 'N/A'}`,
+      s.nstp_component || 'N/A',
+      `${s.totalHours.toFixed(1)} hrs`
+    ]);
+
+    (doc as any).autoTable({
+      startY: 55,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] },
+      styles: { fontSize: 9 },
+    });
+
+    doc.save(`NSTP_Masterlist_Report_${new Date().getTime()}.pdf`);
   };
 
   return (
@@ -98,10 +150,18 @@ export default function NstpRecordsPage() {
           <button
             onClick={exportToCSV}
             disabled={isLoading || filteredStudents.length === 0}
-            className="w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-indigo-50 text-indigo-700 font-bold rounded-xl border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-white text-slate-700 font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="w-5 h-5 mr-2" />
-            Export CSV
+            <Download className="w-4 h-4 mr-2" />
+            CSV Data
+          </button>
+          <button
+            onClick={exportToPDF}
+            disabled={isLoading || filteredStudents.length === 0}
+            className="w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileText className="w-5 h-5 mr-2" />
+            Generate PDF
           </button>
         </div>
       </div>
