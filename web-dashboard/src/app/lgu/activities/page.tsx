@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
+import { AGUSAN_DEL_SUR_LOCATIONS } from '@/lib/locations'
 
 const LocationPickerMap = dynamic(
   () => import('@/components/Map/LocationPickerMap'),
@@ -13,7 +14,7 @@ export default function LguActivitiesPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [eventDate, setEventDate] = useState('')
-  const [municipality, setMunicipality] = useState('Prosperidad') // default
+  const [municipality, setMunicipality] = useState('') 
   const [barangay, setBarangay] = useState('')
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
@@ -96,7 +97,7 @@ export default function LguActivitiesPage() {
                   required
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   placeholder="e.g. Tree Planting Drive"
                 />
               </div>
@@ -108,7 +109,7 @@ export default function LguActivitiesPage() {
                   required
                   value={eventDate}
                   onChange={e => setEventDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -117,23 +118,32 @@ export default function LguActivitiesPage() {
                   <label className="block text-sm font-bold text-slate-700 mb-1">Municipality</label>
                   <select 
                     value={municipality}
-                    onChange={e => setMunicipality(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={e => {
+                      setMunicipality(e.target.value)
+                      setBarangay('')
+                    }}
+                    className="w-full px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                   >
-                    <option value="Prosperidad">Prosperidad</option>
-                    <option value="San Francisco">San Francisco</option>
-                    <option value="Bayugan">Bayugan</option>
+                    <option value="" disabled>Select Municipality</option>
+                    {Object.keys(AGUSAN_DEL_SUR_LOCATIONS).map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Barangay</label>
-                  <input 
+                  <select 
                     required
                     value={barangay}
                     onChange={e => setBarangay(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="e.g. Patin-ay"
-                  />
+                    className="w-full px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    disabled={!municipality}
+                  >
+                    <option value="" disabled>Select Barangay</option>
+                    {municipality && AGUSAN_DEL_SUR_LOCATIONS[municipality]?.map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>

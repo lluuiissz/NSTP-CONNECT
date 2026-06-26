@@ -71,6 +71,12 @@ CREATE TABLE public.notifications (
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view all users (for admins/nstp, limited for volunteers but simplified for MVP)" ON public.users FOR SELECT USING (true);
 CREATE POLICY "Users can update their own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "NSTP coordinators can update user status" ON public.users FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'nstp')
+);
+CREATE POLICY "NSTP coordinators can delete users" ON public.users FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'nstp')
+);
 
 -- Activities
 ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
