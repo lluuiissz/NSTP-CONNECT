@@ -1,5 +1,9 @@
+'use client'
+
 import Link from 'next/link'
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import { 
   LogOut, 
   Map as MapIcon, 
@@ -31,6 +35,60 @@ const nstpLinks = [
 ];
 
 export default function DashboardLayout({ children, role }: DashboardLayoutProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isAuthorized, setIsAuthorized] = useState(false)
+
+  useEffect(() => {
+    checkAuth()
+  }, [pathname])
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      router.push('/login')
+      return
+    }
+
+    // Verify role matches the portal they are trying to access
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+
+    if (!userData) {
+      router.push('/login')
+      return
+    }
+
+    if (role === 'lgu' && userData.role !== 'admin') {
+      router.push('/nstp') // Try redirecting to NSTP if they are NSTP
+      return
+    }
+
+    if (role === 'nstp' && userData.role !== 'nstp') {
+      router.push('/lgu') // Try redirecting to LGU if they are admin
+      return
+    }
+
+    setIsAuthorized(true)
+  }
+
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex bg-slate-50">
       {/* Sidebar - Follows Jakob's Law for standard navigation placement */}
@@ -59,12 +117,12 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <Link 
-            href="/login"
-            className="flex items-center w-full px-4 py-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+          <button 
+            onClick={handleLogout}
+            className="flex items-center w-full px-4 py-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
             <span className="mr-3"><LogOut size={20} /></span> Logout
-          </Link>
+          </button>
         </div>
       </aside>
 
