@@ -68,3 +68,10 @@ This file mirrors the AI's internal task tracking so you can monitor progress di
   - [x] Built the Emergency Broadcast Panel for LGUs (`/lgu/broadcast`).
   - [x] Built the Activity Logs table for LGUs (`/lgu/activity-logs`).
   - [x] Built the NSTP Verified Masterlist with service hour aggregation (`/nstp/records`).
+
+- [x] **Phase 13: Refinement & Security Enhancements**
+  - [x] Fixed mobile app timer synchronization and session restoration when navigating back.
+  - [x] Added unique volunteer counting logic to Activity Logs (including CSV and PDF exports).
+  - [x] Restructured sidebar routing to prevent layout collision between LGU and NSTP portals.
+  - [x] Restricted Unverified volunteers from starting activity timers in the mobile app.
+  - [x] Implemented client-side Route Protection (Auth Guard) to secure LGU and NSTP dashboard URLs.
