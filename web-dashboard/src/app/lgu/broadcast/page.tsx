@@ -37,7 +37,7 @@ export default function BroadcastPage() {
       if (users && users.length > 0) {
         for (const user of users) {
           if (user.fcm_token) {
-            await fetch('/api/send-push', {
+            const res = await fetch('/api/send-push', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -47,6 +47,10 @@ export default function BroadcastPage() {
                 data: { type: 'broadcast' }
               })
             });
+            if (!res.ok) {
+              const errData = await res.json();
+              throw new Error(`Push Error: ${errData.error} - ${errData.details || ''}`);
+            }
           }
         }
       }
