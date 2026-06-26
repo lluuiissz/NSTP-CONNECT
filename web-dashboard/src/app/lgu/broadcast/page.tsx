@@ -88,7 +88,7 @@ export default function BroadcastPage() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
+              className="w-full px-4 py-3 bg-white text-gray-900 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
               placeholder="e.g. Typhoon Update, Mustering Order..."
               required
             />
@@ -99,7 +99,7 @@ export default function BroadcastPage() {
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all min-h-[120px]"
+              className="w-full px-4 py-3 bg-white text-gray-900 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all min-h-[120px]"
               placeholder="Provide clear instructions for the volunteers..."
               required
             ></textarea>
@@ -111,7 +111,7 @@ export default function BroadcastPage() {
               type="text"
               value={targetMunicipality}
               onChange={(e) => setTargetMunicipality(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
+              className="w-full px-4 py-3 bg-white text-gray-900 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
               placeholder="Leave blank to broadcast to everyone in Agusan del Sur"
             />
           </div>
