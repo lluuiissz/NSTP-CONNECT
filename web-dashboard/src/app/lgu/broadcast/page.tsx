@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Megaphone, Send, AlertTriangle } from 'lucide-react';
 
@@ -10,6 +10,44 @@ export default function BroadcastPage() {
   const [targetMunicipality, setTargetMunicipality] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ text: '', type: '' });
+
+  const [recentBroadcasts, setRecentBroadcasts] = useState<any[]>([]);
+  const [isLoadingRecent, setIsLoadingRecent] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchRecentBroadcasts();
+  }, []);
+
+  const fetchRecentBroadcasts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      setRecentBroadcasts(data || []);
+    } catch (err) {
+      console.error('Failed to fetch recent broadcasts', err);
+    } finally {
+      setIsLoadingRecent(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this broadcast? It will be removed from volunteers\' inboxes.')) return;
+    setIsDeleting(id);
+    try {
+      const { error } = await supabase.from('notifications').delete().eq('id', id);
+      if (error) throw error;
+      setRecentBroadcasts((prev) => prev.filter((b) => b.id !== id));
+    } catch (err: any) {
+      alert(`Failed to delete: ${err.message}`);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
 
   const handleBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +97,7 @@ export default function BroadcastPage() {
       setTitle('');
       setMessage('');
       setTargetMunicipality('');
+      fetchRecentBroadcasts();
     } catch (err: any) {
       console.error(err);
       setStatusMsg({ text: `Failed to send broadcast: ${err.message}`, type: 'error' });
@@ -139,6 +178,60 @@ export default function BroadcastPage() {
             )}
           </button>
         </form>
+      </div>
+
+      <div className="mt-12 mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">Recent Broadcasts</h2>
+        <p className="text-gray-500 mt-1">Manage and remove previously sent notifications from the database.</p>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {isLoadingRecent ? (
+          <div className="p-8 text-center text-gray-500">Loading recent broadcasts...</div>
+        ) : recentBroadcasts.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">No broadcasts have been sent yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-sm">
+                  <th className="p-4 font-medium">Title</th>
+                  <th className="p-4 font-medium">Message</th>
+                  <th className="p-4 font-medium">Target</th>
+                  <th className="p-4 font-medium">Date Sent</th>
+                  <th className="p-4 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {recentBroadcasts.map((b) => (
+                  <tr key={b.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-4 font-medium text-gray-900">{b.title}</td>
+                    <td className="p-4 text-gray-600 max-w-xs truncate">{b.message}</td>
+                    <td className="p-4 text-gray-500">
+                      {b.target_municipality ? (
+                        <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{b.target_municipality}</span>
+                      ) : (
+                        <span className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">Global (All)</span>
+                      )}
+                    </td>
+                    <td className="p-4 text-gray-500 text-sm">
+                      {new Date(b.created_at).toLocaleString()}
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => handleDelete(b.id)}
+                        disabled={isDeleting === b.id}
+                        className="text-red-500 hover:text-red-700 font-medium text-sm transition-colors disabled:opacity-50"
+                      >
+                        {isDeleting === b.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
