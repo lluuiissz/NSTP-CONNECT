@@ -2,10 +2,33 @@ import { NextResponse } from 'next/server';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 
-// Format private key safely (handles Vercel escaping and surrounding quotes)
+// Extremely robust private key parsing
 let formattedPrivateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-formattedPrivateKey = formattedPrivateKey.replace(/^"|"$|^'|'$/g, ''); // Remove wrapping quotes if added
-formattedPrivateKey = formattedPrivateKey.replace(/\\n/g, '\n');       // Fix escaped newlines
+if (formattedPrivateKey) {
+  formattedPrivateKey = formattedPrivateKey.trim();
+  // If wrapped in quotes, try to JSON parse it to handle deep escapes
+  if (formattedPrivateKey.startsWith('"') && formattedPrivateKey.endsWith('"')) {
+    try {
+      formattedPrivateKey = JSON.parse(formattedPrivateKey);
+    } catch(e) {
+      formattedPrivateKey = formattedPrivateKey.replace(/^"|"$/g, '');
+    }
+  }
+  // Replace literal \n with actual newlines
+  formattedPrivateKey = formattedPrivateKey.replace(/\\n/g, '\n');
+  
+  // Fix cases where copy-pasting turned newlines into spaces
+  if (!formattedPrivateKey.includes('\n')) {
+    formattedPrivateKey = formattedPrivateKey.replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n');
+    formattedPrivateKey = formattedPrivateKey.replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----');
+    // Replace all spaces in the base64 body with newlines
+    const bodyMatch = formattedPrivateKey.match(/-----BEGIN PRIVATE KEY-----\n(.*?)\n-----END PRIVATE KEY-----/);
+    if (bodyMatch && bodyMatch[1]) {
+      const fixedBody = bodyMatch[1].replace(/ /g, '\n');
+      formattedPrivateKey = `-----BEGIN PRIVATE KEY-----\n${fixedBody}\n-----END PRIVATE KEY-----`;
+    }
+  }
+}
 
 if (getApps().length === 0) {
   try {
