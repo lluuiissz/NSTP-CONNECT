@@ -34,7 +34,7 @@ export default function DownloadAppPage() {
         </div>
 
         <a 
-          href="/nstp-connect.apk"
+          href="/nstp-connect.apk?v=2"
           download="NSTP-CONNECT.apk"
           className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-bold py-4 px-8 rounded-xl shadow-lg transform transition-all active:scale-95 flex justify-center items-center gap-3 text-lg mb-4"
         >
