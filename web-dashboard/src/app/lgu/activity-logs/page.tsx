@@ -21,7 +21,7 @@ export default function ActivityLogsPage() {
         .from('activities')
         .select(`
           *,
-          volunteer_logs (id)
+          volunteer_logs (user_id)
         `)
         .order('created_at', { ascending: false });
 
@@ -50,7 +50,7 @@ export default function ActivityLogsPage() {
   const exportToCSV = () => {
     const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     const totalActivities = activities.length;
-    const totalVols = activities.reduce((sum, a) => sum + (a.volunteer_logs?.length || 0), 0);
+    const totalVols = activities.reduce((sum, a) => sum + new Set(a.volunteer_logs?.map((l: any) => l.user_id)).size, 0);
 
     const csvContent = [
       `"NSTP-CONNECT OFFICIAL REPORT"`,
@@ -66,7 +66,7 @@ export default function ActivityLogsPage() {
         `"${a.municipality}"`,
         `"${a.barangay}"`,
         `"${new Date(a.event_date).toLocaleDateString()}"`,
-        `"${a.volunteer_logs?.length || 0}"`,
+        `"${new Set(a.volunteer_logs?.map((l: any) => l.user_id)).size}"`,
         `"${(a.description || '').replace(/"/g, '""')}"`
       ].join(','))
     ];
@@ -99,7 +99,7 @@ export default function ActivityLogsPage() {
     doc.setFontSize(10);
     doc.text(`Generated Date: ${reportDate}`, 14, 40);
     doc.text(`Total Activities: ${activities.length}`, 14, 46);
-    const totalVols = activities.reduce((sum, a) => sum + (a.volunteer_logs?.length || 0), 0);
+    const totalVols = activities.reduce((sum, a) => sum + new Set(a.volunteer_logs?.map((l: any) => l.user_id)).size, 0);
     doc.text(`Total Volunteer Check-ins: ${totalVols}`, 14, 52);
 
     // Table
@@ -108,7 +108,7 @@ export default function ActivityLogsPage() {
       a.title,
       `${a.barangay}, ${a.municipality}`,
       new Date(a.event_date).toLocaleDateString(),
-      (a.volunteer_logs?.length || 0).toString()
+      new Set(a.volunteer_logs?.map((l: any) => l.user_id)).size.toString()
     ]);
 
     autoTable(doc, {
@@ -196,7 +196,7 @@ export default function ActivityLogsPage() {
                     <td className="p-4 text-center">
                       <div className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
                         <Users className="w-4 h-4 mr-1" />
-                        {activity.volunteer_logs?.length || 0}
+                        {new Set(activity.volunteer_logs?.map((l: any) => l.user_id)).size}
                       </div>
                     </td>
                     <td className="p-4 text-right">
