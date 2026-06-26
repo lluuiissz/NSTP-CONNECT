@@ -87,6 +87,9 @@ CREATE POLICY "Only admins can insert activities" ON public.activities FOR INSER
 CREATE POLICY "Admins can update their activities" ON public.activities FOR UPDATE USING (
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
 );
+CREATE POLICY "Admins can delete activities" ON public.activities FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+);
 
 -- Volunteer Logs
 ALTER TABLE public.volunteer_logs ENABLE ROW LEVEL SECURITY;
