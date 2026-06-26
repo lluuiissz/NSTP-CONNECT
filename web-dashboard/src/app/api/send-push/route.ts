@@ -2,15 +2,18 @@ import { NextResponse } from 'next/server';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 
-// Initialize Firebase Admin if not already initialized
+// Format private key safely (handles Vercel escaping and surrounding quotes)
+let formattedPrivateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+formattedPrivateKey = formattedPrivateKey.replace(/^"|"$|^'|'$/g, ''); // Remove wrapping quotes if added
+formattedPrivateKey = formattedPrivateKey.replace(/\\n/g, '\n');       // Fix escaped newlines
+
 if (getApps().length === 0) {
   try {
     initializeApp({
       credential: cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        // Replace escaped newlines if they exist in the env variable
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        privateKey: formattedPrivateKey,
       }),
     });
   } catch (error) {
