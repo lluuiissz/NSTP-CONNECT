@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ClipboardList, Calendar, MapPin, Trash2, Users, Download, FileText } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, Trash2, Users, Download, FileText, Edit2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import EditActivityModal from '@/components/Dashboard/EditActivityModal';
 
 export default function ActivityLogsPage() {
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingActivity, setEditingActivity] = useState<any>(null);
 
   useEffect(() => {
     fetchActivities();
@@ -200,13 +202,22 @@ export default function ActivityLogsPage() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => handleDelete(activity.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete Activity"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setEditingActivity(activity)}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit Activity"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(activity.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Activity"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -215,6 +226,17 @@ export default function ActivityLogsPage() {
           </table>
         </div>
       </div>
+
+      {editingActivity && (
+        <EditActivityModal
+          activity={editingActivity}
+          onClose={() => setEditingActivity(null)}
+          onSave={(updated) => {
+            setActivities(activities.map(a => a.id === updated.id ? { ...a, ...updated } : a))
+            setEditingActivity(null)
+          }}
+        />
+      )}
     </div>
   );
 }

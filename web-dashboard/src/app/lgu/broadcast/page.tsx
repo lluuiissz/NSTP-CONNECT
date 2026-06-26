@@ -27,6 +27,30 @@ export default function BroadcastPage() {
 
       if (error) throw error;
 
+      // Trigger Push Notifications
+      let query = supabase.from('users').select('fcm_token').not('fcm_token', 'is', null);
+      if (targetMunicipality.trim() !== '') {
+        query = query.eq('municipality', targetMunicipality.trim());
+      }
+      
+      const { data: users } = await query;
+      if (users && users.length > 0) {
+        for (const user of users) {
+          if (user.fcm_token) {
+            await fetch('/api/send-push', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token: user.fcm_token,
+                title: title,
+                body: message,
+                data: { type: 'broadcast' }
+              })
+            });
+          }
+        }
+      }
+
       setStatusMsg({ text: 'Broadcast sent successfully! Volunteers have been notified.', type: 'success' });
       setTitle('');
       setMessage('');

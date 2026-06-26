@@ -12,7 +12,8 @@ import {
   FileCheck,
   Megaphone,
   ClipboardList,
-  Database
+  Database,
+  Users
 } from 'lucide-react'
 
 interface DashboardLayoutProps {
@@ -32,6 +33,7 @@ const lguLinks = [
 const nstpLinks = [
   { name: 'Verification Queue', href: '/nstp', icon: FileCheck },
   { name: 'Student Masterlist', href: '/nstp/records', icon: Database },
+  { name: 'Admin Management', href: '/nstp/admins', icon: Users },
 ];
 
 export default function DashboardLayout({ children, role }: DashboardLayoutProps) {

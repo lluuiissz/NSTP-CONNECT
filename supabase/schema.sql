@@ -25,6 +25,7 @@ CREATE TABLE public.users (
     profile_image_url TEXT,
     certificate_url TEXT,
     is_verified BOOLEAN DEFAULT FALSE,
+    fcm_token TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

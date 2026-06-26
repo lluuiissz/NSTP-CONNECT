@@ -51,6 +51,34 @@ export default function LguActivitiesPage() {
     if (error) {
       setErrorMsg('Could not save the activity. Please try again.')
     } else {
+      // Trigger Push Notification for the specific municipality
+      try {
+        const { data: users } = await supabase
+          .from('users')
+          .select('fcm_token')
+          .eq('municipality', municipality)
+          .not('fcm_token', 'is', null);
+
+        if (users && users.length > 0) {
+          for (const user of users) {
+            if (user.fcm_token) {
+              await fetch('/api/send-push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  token: user.fcm_token,
+                  title: 'New Activity Alert',
+                  body: `A new activity "${title}" was created in ${barangay}, ${municipality}.`,
+                  data: { type: 'activity' }
+                })
+              });
+            }
+          }
+        }
+      } catch (pushErr) {
+        console.error("Failed to send push notifications:", pushErr);
+      }
+
       setSuccess(true)
       // Reset form
       setTitle('')
