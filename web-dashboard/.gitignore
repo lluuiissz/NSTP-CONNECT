@@ -20,6 +20,15 @@
 # production
 /build
 
+# env files (can opt-in for committing if needed)
+.env*
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Firebase Credentials
+service-account*.json
+
 # misc
 .DS_Store
 *.pem
