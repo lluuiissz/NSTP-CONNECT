@@ -129,63 +129,7 @@ export default function LoginPage() {
               )}
             </button>
 
-            {/* Temporary testing section */}
-            <div className="pt-6 mt-6 border-t border-white/10 text-center">
-              <p className="text-sm text-blue-200 mb-4">Demo / Testing Options</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setLoading(true);
-                    const dynamicEmail = `admin_${Date.now()}@lgu.gov.ph`;
-                    const { error } = await supabase.auth.signUp({ email: dynamicEmail, password: 'password123', options: { data: { role: 'admin', full_name: 'Super Admin' } } });
-                    
-                    if (error) {
-                      setErrorMsg(`Signup Error: ${error.message}`);
-                      setLoading(false);
-                      return;
-                    }
 
-                    // Force update role directly
-                    await supabase.from('users').update({ role: 'admin' }).eq('email', dynamicEmail);
-                    setEmail(dynamicEmail);
-                    setPassword('password123');
-                    setLoading(false);
-                    setErrorMsg('Admin account created! Click Login.');
-                  }}
-                  className="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2 px-4 rounded-lg transition-colors border border-white/20"
-                >
-                  Create LGU Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setLoading(true);
-                    const dynamicEmail = `office_${Date.now()}@nstp.edu.ph`;
-                    const { error } = await supabase.auth.signUp({ email: dynamicEmail, password: 'password123', options: { data: { role: 'nstp', full_name: 'NSTP Coordinator' } } });
-                    
-                    if (error) {
-                      setErrorMsg(`Signup Error: ${error.message}`);
-                      setLoading(false);
-                      return;
-                    }
-
-                    // Force update role directly
-                    await supabase.from('users').update({ role: 'nstp' }).eq('email', dynamicEmail);
-                    setEmail(dynamicEmail);
-                    setPassword('password123');
-                    setLoading(false);
-                    setErrorMsg('NSTP account created! Click Login.');
-                  }}
-                  className="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2 px-4 rounded-lg transition-colors border border-white/20"
-                >
-                  Create NSTP Office
-                </button>
-              </div>
-              <p className="text-xs text-blue-300/60 mt-3 italic">
-                Note: Ensure you've run the SQL schema in Supabase first!
-              </p>
-            </div>
           </form>
         </div>
       </div>
