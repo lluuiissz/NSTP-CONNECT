@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Database, Search, Award, Clock } from 'lucide-react';
+import { Database, Search, Award, Clock, Download } from 'lucide-react';
 
 export default function NstpRecordsPage() {
   const [students, setStudents] = useState<any[]>([]);
@@ -48,9 +48,30 @@ export default function NstpRecordsPage() {
 
   const filteredStudents = students.filter(s => 
     s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.municipality?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.nstp_component?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const exportToCSV = () => {
+    const headers = ['Student Name', 'Email', 'Municipality', 'Barangay', 'NSTP Component', 'Total Service Hours'];
+    const csvData = filteredStudents.map(s => [
+      `"${(s.full_name || '').replace(/"/g, '""')}"`,
+      `"${s.email}"`,
+      `"${s.municipality || 'N/A'}"`,
+      `"${s.barangay || 'N/A'}"`,
+      `"${s.nstp_component || 'N/A'}"`,
+      s.totalHours.toFixed(1)
+    ].join(','));
+    
+    const csvString = [headers.join(','), ...csvData].join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'volunteer_masterlist_report.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div>
@@ -63,15 +84,25 @@ export default function NstpRecordsPage() {
           <p className="text-gray-500 mt-2">Manage verified NSTP graduates and monitor their accumulated service hours.</p>
         </div>
         
-        <div className="relative">
-          <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search name, location, or component..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[300px]"
-          />
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative w-full sm:w-auto">
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search name, location..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[250px]"
+            />
+          </div>
+          <button
+            onClick={exportToCSV}
+            disabled={isLoading || filteredStudents.length === 0}
+            className="w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-indigo-50 text-indigo-700 font-bold rounded-xl border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Export CSV
+          </button>
         </div>
       </div>
 

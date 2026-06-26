@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ClipboardList, Calendar, MapPin, Trash2, Users } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, Trash2, Users, Download } from 'lucide-react';
 
 export default function ActivityLogsPage() {
   const [activities, setActivities] = useState<any[]>([]);
@@ -45,14 +45,46 @@ export default function ActivityLogsPage() {
     }
   };
 
+  const exportToCSV = () => {
+    const headers = ['Activity Title', 'Description', 'Municipality', 'Barangay', 'Date', 'Volunteers Count'];
+    const csvData = activities.map(a => [
+      `"${a.title.replace(/"/g, '""')}"`,
+      `"${(a.description || '').replace(/"/g, '""')}"`,
+      `"${a.municipality}"`,
+      `"${a.barangay}"`,
+      new Date(a.event_date).toLocaleDateString(),
+      a.volunteer_logs?.length || 0
+    ].join(','));
+    
+    const csvString = [headers.join(','), ...csvData].join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'activity_participation_report.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-          <ClipboardList className="w-8 h-8 mr-3 text-blue-600" />
-          Activity Logs
-        </h1>
-        <p className="text-gray-500 mt-2">Manage created activities and monitor overall volunteer participation.</p>
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+            <ClipboardList className="w-8 h-8 mr-3 text-blue-600" />
+            Activity Logs
+          </h1>
+          <p className="text-gray-500 mt-2">Manage created activities and monitor overall volunteer participation.</p>
+        </div>
+        <button
+          onClick={exportToCSV}
+          disabled={isLoading || activities.length === 0}
+          className="flex items-center px-6 py-3 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download className="w-5 h-5 mr-2" />
+          Export CSV Report
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

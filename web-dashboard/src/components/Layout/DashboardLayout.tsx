@@ -22,6 +22,7 @@ const lguLinks = [
   { name: 'Activity Management', href: '/lgu/activities', icon: MapPin },
   { name: 'Activity Logs', href: '/lgu/activity-logs', icon: ClipboardList },
   { name: 'Emergency Broadcasts', href: '/lgu/broadcast', icon: Megaphone },
+  { name: 'Student Masterlist', href: '/nstp/records', icon: Database },
 ];
 
 const nstpLinks = [
