@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Database, Search, Award, Clock, Download, FileText } from 'lucide-react';
+import { Database, Search, Award, Clock, Download, FileText, Ban, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -10,6 +10,7 @@ export default function NstpRecordsPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchVerifiedStudents();
@@ -52,6 +53,38 @@ export default function NstpRecordsPage() {
     s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.nstp_component?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleUpdateStatus = async (studentId: string, action: 'suspend' | 'delete') => {
+    const confirmMessage = action === 'suspend' 
+      ? 'Are you sure you want to suspend this volunteer? This will revoke their verified status and remove them from the Masterlist.'
+      : 'Are you sure you want to completely delete this volunteer record? This action cannot be undone.';
+      
+    if (!confirm(confirmMessage)) return;
+
+    setActionLoading(studentId);
+    try {
+      if (action === 'suspend') {
+        const { error } = await supabase
+          .from('users')
+          .update({ is_verified: false })
+          .eq('id', studentId);
+        if (error) throw error;
+      } else if (action === 'delete') {
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', studentId);
+        if (error) throw error;
+      }
+      
+      setStudents(prev => prev.filter(s => s.id !== studentId));
+    } catch (err) {
+      console.error("Error updating status:", err);
+      alert('Failed to update volunteer status.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const exportToCSV = () => {
     const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -175,16 +208,17 @@ export default function NstpRecordsPage() {
                 <th className="p-4 font-semibold text-gray-600">Location</th>
                 <th className="p-4 font-semibold text-gray-600">Component</th>
                 <th className="p-4 font-semibold text-gray-600 text-center">Total Service Hours</th>
+                <th className="p-4 font-semibold text-gray-600 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-500">Loading records...</td>
+                  <td colSpan={5} className="p-8 text-center text-gray-500">Loading records...</td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-500">No records found.</td>
+                  <td colSpan={5} className="p-8 text-center text-gray-500">No records found.</td>
                 </tr>
               ) : (
                 filteredStudents.map((student) => (
@@ -211,6 +245,26 @@ export default function NstpRecordsPage() {
                         <span className={`font-bold ${student.totalHours >= 40 ? 'text-yellow-600' : 'text-indigo-600'}`}>
                           {student.totalHours.toFixed(1)} hrs
                         </span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleUpdateStatus(student.id, 'suspend')}
+                          disabled={actionLoading !== null}
+                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Suspend/Revoke Verification"
+                        >
+                          <Ban className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleUpdateStatus(student.id, 'delete')}
+                          disabled={actionLoading !== null}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Delete Record"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
