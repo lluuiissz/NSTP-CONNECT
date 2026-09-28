@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -34,59 +34,144 @@ const inactiveIcon = new L.Icon({
   shadowSize: [41, 41]
 })
 
+interface RadarVolunteer {
+  id: string
+  lat: number | null
+  lng: number | null
+  status: string
+  service_hours: number | null
+  created_at: string
+  users: {
+    full_name: string | null
+    mobile_number: string | null
+  } | null
+}
+
+// Supabase types embedded joins as arrays by default; normalize to a single object.
+type RawLog = {
+  id: string
+  lat: number | null
+  lng: number | null
+  status: string
+  service_hours: number | null
+  created_at: string
+  users: { full_name: string | null; mobile_number: string | null } | { full_name: string | null; mobile_number: string | null }[] | null
+}
+
 export default function LiveRadarMap() {
-  const [volunteers, setVolunteers] = useState<any[]>([])
-  
+  const [volunteers, setVolunteers] = useState<RadarVolunteer[]>([])
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
   // Default center: Agusan del Sur
   const center: [number, number] = [8.5065, 125.7562]
 
-  useEffect(() => {
-    // Fetch logs for today (both active and completed)
-    const fetchLogs = async () => {
-      // Get the start of today in ISO string for filtering
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = () => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d.toISOString()
+  }
 
-      const { data, error } = await supabase
-        .from('volunteer_logs')
-        .select(`
-          id,
-          lat,
-          lng,
-          status,
-          service_hours,
-          users (
-            full_name
-          )
-        `)
-        .gte('created_at', startOfToday.toISOString())
-      
-      if (!error && data) {
-        setVolunteers(data)
-      }
-    }
-    
-    fetchLogs()
+  // Full fetch — used once on mount and as a safety net when a delta
+  // arrives for a log we don't have (e.g. changed while we were offline).
+  const fetchLogs = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('volunteer_logs')
+      .select(`
+        id,
+        lat,
+        lng,
+        status,
+        service_hours,
+        created_at,
+        users (
+          full_name,
+          mobile_number
+        )
+      `)
+      .gte('created_at', startOfToday())
 
-    // Realtime subscription (Listen to ANY status changes on volunteer_logs)
-    const channel = supabase
-      .channel('volunteer_tracking')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'volunteer_logs'
-      }, (payload) => {
-        // Fetch all again to keep it simple and ensure we get the user join data
-        fetchLogs()
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+    if (!error && data) {
+      const rows = (data as unknown as RawLog[]).map((r) => ({
+        ...r,
+        users: Array.isArray(r.users) ? r.users[0] ?? null : r.users,
+      }))
+      setVolunteers(rows)
+      setLastUpdated(new Date())
     }
   }, [])
 
-  const activeCount = volunteers.filter(v => v.status === 'active').length;
+  // Fetch the joined user profile for a single log (used by delta handling,
+  // because realtime payloads don't include the users join).
+  const fetchUserForLog = useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from('users')
+      .select('full_name, mobile_number')
+      .eq('id', userId)
+      .single()
+    return data
+  }, [])
+
+  useEffect(() => {
+    // Defer initial fetch so we never setState synchronously inside the effect body
+    const t = setTimeout(fetchLogs, 0);
+
+    // Realtime: apply each change as a delta instead of refetching everything.
+    // volunteer_logs updates fire when volunteers move (GPS pings) or stop
+    // tracking, so this keeps the radar smooth at any volunteer count.
+    const channel = supabase
+      .channel('volunteer_tracking')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'volunteer_logs' },
+        (payload) => {
+          const row = payload.new as { id: string; user_id: string; lat: number | null; lng: number | null; status: string; service_hours: number | null; created_at: string }
+          fetchUserForLog(row.user_id).then((user) => {
+            setVolunteers((prev) => {
+              if (prev.some((v) => v.id === row.id)) return prev
+              return [...prev, { ...row, users: user }]
+            })
+            setLastUpdated(new Date())
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'volunteer_logs' },
+        (payload) => {
+          const row = payload.new as { id: string; user_id: string; lat: number | null; lng: number | null; status: string; service_hours: number | null; created_at: string }
+          setVolunteers((prev) => {
+            const existing = prev.find((v) => v.id === row.id)
+            if (!existing) {
+              // Unknown log (e.g. created while we were disconnected) — fall back
+              // to a full refetch to resync.
+              fetchLogs()
+              return prev
+            }
+            return prev.map((v) =>
+              v.id === row.id ? { ...v, lat: row.lat, lng: row.lng, status: row.status, service_hours: row.service_hours } : v
+            )
+          })
+          setLastUpdated(new Date())
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'volunteer_logs' },
+        (payload) => {
+          const old = payload.old as { id: string }
+          setVolunteers((prev) => prev.filter((v) => v.id !== old.id))
+          setLastUpdated(new Date())
+        }
+      )
+      .subscribe()
+
+    return () => {
+      clearTimeout(t)
+      supabase.removeChannel(channel)
+    }
+  }, [fetchLogs, fetchUserForLog])
+
+  const activeCount = volunteers.filter(v => v.status === 'active').length
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -107,6 +192,11 @@ export default function LiveRadarMap() {
             <span className="h-3 w-3 rounded-full bg-slate-400"></span>
             <span className="text-xs font-medium text-slate-500">Completed Today</span>
           </div>
+          {lastUpdated && (
+            <div className="text-xs text-slate-400">
+              Updated {lastUpdated.toLocaleTimeString()}
+            </div>
+          )}
         </div>
       </div>
       
@@ -128,6 +218,14 @@ export default function LiveRadarMap() {
                   <div className="font-semibold text-slate-800">
                     {vol.users?.full_name || 'Unknown Volunteer'}
                   </div>
+                  {vol.users?.mobile_number && (
+                    <a
+                      href={`tel:${vol.users.mobile_number}`}
+                      className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      📞 {vol.users.mobile_number}
+                    </a>
+                  )}
                   {vol.status === 'active' ? (
                     <div className="text-xs text-green-600 font-bold mt-1 flex items-center gap-1">
                       <span className="relative flex h-2 w-2">

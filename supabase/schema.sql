@@ -22,6 +22,7 @@ CREATE TABLE public.users (
     nstp_component TEXT, -- e.g., CWTS, LTS, ROTC
     municipality TEXT,
     barangay TEXT,
+    mobile_number TEXT, -- Contact number for verification calls / emergency mustering
     profile_image_url TEXT,
     certificate_url TEXT,
     is_verified BOOLEAN DEFAULT FALSE,
@@ -126,15 +127,16 @@ CREATE POLICY "Users can update their own certificates" ON storage.objects FOR U
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.users (id, full_name, email, role, nstp_component, municipality, barangay)
+    INSERT INTO public.users (id, full_name, email, role, nstp_component, municipality, barangay, mobile_number)
     VALUES (
         new.id, 
         COALESCE(new.raw_user_meta_data->>'full_name', new.email), 
         new.email, 
-        COALESCE((new.raw_user_meta_data->>'role')::public.user_role, 'volunteer'::public.user_role),
+        'volunteer',  -- SECURITY: never trust client-supplied role metadata; promote via service-role API only
         new.raw_user_meta_data->>'nstp_component',
         new.raw_user_meta_data->>'municipality',
-        new.raw_user_meta_data->>'barangay'
+        new.raw_user_meta_data->>'barangay',
+        new.raw_user_meta_data->>'mobile_number'
     );
     RETURN new;
 END;

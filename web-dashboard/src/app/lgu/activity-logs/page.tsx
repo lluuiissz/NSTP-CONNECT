@@ -10,31 +10,49 @@ import EditActivityModal from '@/components/Dashboard/EditActivityModal';
 export default function ActivityLogsPage() {
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [pageFrom, setPageFrom] = useState(0);
   const [editingActivity, setEditingActivity] = useState<any>(null);
 
-  useEffect(() => {
-    fetchActivities();
-  }, []);
+  const PAGE_SIZE = 100;
 
-  const fetchActivities = async () => {
+  const fetchActivities = async (from = 0) => {
     try {
-      // Fetch activities and also get the count of volunteers (from volunteer_logs)
+      // Fetch activities (paged) with volunteer_logs for unique-volunteer counts
       const { data, error } = await supabase
         .from('activities')
         .select(`
           *,
           volunteer_logs (user_id)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
 
       if (error) throw error;
-      setActivities(data || []);
+      const rows = data || [];
+      setHasMore(rows.length === PAGE_SIZE);
+      setPageFrom(from + rows.length);
+      setActivities((prev) => (from === 0 ? rows : [...prev, ...rows]));
     } catch (err) {
       console.error("Error fetching activities:", err);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
+
+  const loadMore = async () => {
+    setIsLoadingMore(true);
+    await fetchActivities(pageFrom);
+  };
+
+  // Fetch after first paint (deferred, so no synchronous setState inside the effect body)
+  useEffect(() => {
+    const t = setTimeout(fetchActivities, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this activity? This will also delete all associated volunteer logs.')) return;
@@ -43,23 +61,29 @@ export default function ActivityLogsPage() {
       const { error } = await supabase.from('activities').delete().eq('id', id);
       if (error) throw error;
       setActivities(activities.filter(a => a.id !== id));
+      // Note: counts/hasMore stay as-is; next full visit refreshes them.
     } catch (err) {
       console.error("Error deleting activity:", err);
       alert('Failed to delete activity.');
     }
   };
 
+  // Count each volunteer ONCE across all activities (per-activity counts remain per activity)
+  const totalUniqueVolunteers = new Set(
+    activities.flatMap(a => (a.volunteer_logs || []).map((l: { user_id: string }) => l.user_id))
+  ).size;
+
   const exportToCSV = () => {
     const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     const totalActivities = activities.length;
-    const totalVols = activities.reduce((sum, a) => sum + new Set(a.volunteer_logs?.map((l: any) => l.user_id)).size, 0);
+    const totalVols = totalUniqueVolunteers;
 
     const csvContent = [
       `"NSTP-CONNECT OFFICIAL REPORT"`,
       `"Report Type:","Activity Participation Logs"`,
       `"Generated Date:","${reportDate}"`,
       `"Total Activities:","${totalActivities}"`,
-      `"Total Volunteer Check-ins:","${totalVols}"`,
+      `"Total Unique Volunteers:","${totalVols}"`,
       `""`,
       `"===================================================================================================="`,
       `"ACTIVITY TITLE","MUNICIPALITY","BARANGAY","EVENT DATE","TOTAL VOLUNTEERS","DESCRIPTION"`,
@@ -101,8 +125,7 @@ export default function ActivityLogsPage() {
     doc.setFontSize(10);
     doc.text(`Generated Date: ${reportDate}`, 14, 40);
     doc.text(`Total Activities: ${activities.length}`, 14, 46);
-    const totalVols = activities.reduce((sum, a) => sum + new Set(a.volunteer_logs?.map((l: any) => l.user_id)).size, 0);
-    doc.text(`Total Volunteer Check-ins: ${totalVols}`, 14, 52);
+    doc.text(`Total Unique Volunteers: ${totalUniqueVolunteers}`, 14, 52);
 
     // Table
     const tableColumn = ["Activity Title", "Location", "Event Date", "Volunteers"];
@@ -227,6 +250,18 @@ export default function ActivityLogsPage() {
         </div>
       </div>
 
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="px-6 py-2.5 bg-white text-blue-600 font-semibold rounded-xl border border-blue-200 hover:bg-blue-50 transition-colors disabled:opacity-50"
+          >
+            {isLoadingMore ? 'Loading more...' : `Load more activities (showing ${activities.length})`}
+          </button>
+        </div>
+      )}
+
       {editingActivity && (
         <EditActivityModal
           activity={editingActivity}
@@ -240,3 +275,5 @@ export default function ActivityLogsPage() {
     </div>
   );
 }
+
+

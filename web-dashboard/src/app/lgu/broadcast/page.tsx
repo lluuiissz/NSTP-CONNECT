@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Megaphone, Send, AlertTriangle } from 'lucide-react';
+import { AGUSAN_DEL_SUR_LOCATIONS } from '@/lib/locations';
+import { Megaphone, Send, AlertTriangle, Users } from 'lucide-react';
 
 export default function BroadcastPage() {
   const [title, setTitle] = useState('');
@@ -11,13 +12,13 @@ export default function BroadcastPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ text: '', type: '' });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [recentBroadcasts, setRecentBroadcasts] = useState<any[]>([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [recipientCount, setRecipientCount] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchRecentBroadcasts();
-  }, []);
+  const trimmedTarget = targetMunicipality.trim();
 
   const fetchRecentBroadcasts = async () => {
     try {
@@ -42,8 +43,8 @@ export default function BroadcastPage() {
       const { error } = await supabase.from('notifications').delete().eq('id', id);
       if (error) throw error;
       setRecentBroadcasts((prev) => prev.filter((b) => b.id !== id));
-    } catch (err: any) {
-      alert(`Failed to delete: ${err.message}`);
+    } catch (err) {
+      alert(`Failed to delete: ${(err as Error).message}`);
     } finally {
       setIsDeleting(null);
     }
@@ -73,23 +74,25 @@ export default function BroadcastPage() {
       
       const { data: users } = await query;
       if (users && users.length > 0) {
-        for (const user of users) {
-          if (user.fcm_token) {
-            const res = await fetch('/api/send-push', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                token: user.fcm_token,
-                title: title,
-                body: message,
-                data: { type: 'broadcast' }
+        const results = await Promise.allSettled(
+          users
+            .filter((user) => user.fcm_token)
+            .map((user) =>
+              fetch('/api/send-push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  token: user.fcm_token,
+                  title: title,
+                  body: message,
+                  data: { type: 'broadcast' }
+                })
               })
-            });
-            if (!res.ok) {
-              const errData = await res.json();
-              throw new Error(`Push Error: ${errData.error} - ${errData.details || ''}`);
-            }
-          }
+            )
+        );
+        const failed = results.filter(r => r.status === 'rejected').length;
+        if (failed > 0) {
+          console.warn(`${failed} push notification(s) failed to send.`);
         }
       }
 
@@ -98,13 +101,42 @@ export default function BroadcastPage() {
       setMessage('');
       setTargetMunicipality('');
       fetchRecentBroadcasts();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setStatusMsg({ text: `Failed to send broadcast: ${err.message}`, type: 'error' });
+      setStatusMsg({ text: `Failed to send broadcast: ${(err as Error).message}`, type: 'error' });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Show admins exactly how many volunteers will receive this push BEFORE sending.
+  // This is the guard against the silent zero-recipient bug.
+  useEffect(() => {
+    let cancelled = false;
+    const countRecipients = async () => {
+      let query = supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .neq('role', 'admin')
+        .neq('role', 'nstp')
+        .not('fcm_token', 'is', null);
+      if (trimmedTarget !== '') {
+        query = query.eq('municipality', trimmedTarget);
+      }
+      const { count, error } = await query;
+      if (!cancelled && !error) setRecipientCount(count ?? 0);
+    };
+    const t = setTimeout(countRecipients, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [trimmedTarget]);
+
+  useEffect(() => {
+    const t = setTimeout(fetchRecentBroadcasts, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <div>
@@ -150,13 +182,22 @@ export default function BroadcastPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Target Municipality (Optional)</label>
-            <input
-              type="text"
+            <select
               value={targetMunicipality}
               onChange={(e) => setTargetMunicipality(e.target.value)}
               className="w-full px-4 py-3 bg-white text-gray-900 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-              placeholder="Leave blank to broadcast to everyone in Agusan del Sur"
-            />
+            >
+              <option value="">All Municipalities (Province-wide broadcast)</option>
+              {Object.keys(AGUSAN_DEL_SUR_LOCATIONS).map((mun) => (
+                <option key={mun} value={mun}>{mun}</option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-gray-500 flex items-center">
+              <Users className="w-3.5 h-3.5 mr-1.5" />
+              {recipientCount === null
+                ? 'Counting volunteers...'
+                : `This alert will reach ${recipientCount} volunteer${recipientCount === 1 ? '' : 's'}${trimmedTarget ? ` in ${trimmedTarget}` : ''}.`}
+            </p>
           </div>
 
           {statusMsg.text && (

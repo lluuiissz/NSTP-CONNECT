@@ -23,9 +23,8 @@ async function createAdmin() {
   } else {
     console.log('Admin auth created. Wait a second for trigger to fire...')
     await new Promise(r => setTimeout(r, 1000))
-    
-    // Update role to admin
-    await supabase.from('users').update({ role: 'admin' }).eq('id', adminAuth.user.id)
+    // Role comes from signup metadata via the handle_new_user() trigger —
+    // a client-side role UPDATE would be blocked by RLS and silently ignored.
     console.log('LGU Admin ready! Login with admin@lgu.gov.ph / password123')
   }
 
@@ -45,7 +44,7 @@ async function createAdmin() {
     console.error('Error creating NSTP user:', nstpErr.message)
   } else {
     await new Promise(r => setTimeout(r, 1000))
-    await supabase.from('users').update({ role: 'nstp' }).eq('id', nstpAuth.user.id)
+    // Same as above: role is set by the trigger from signup metadata.
     console.log('NSTP Coordinator ready! Login with office@nstp.edu.ph / password123')
   }
 

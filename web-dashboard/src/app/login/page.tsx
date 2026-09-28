@@ -49,7 +49,9 @@ export default function LoginPage() {
       } else if (userData?.role === 'nstp') {
         router.push('/nstp')
       } else {
-        // Volunteers use mobile app, but if they login here
+        // Volunteers have no web dashboard. Sign them out so the stale session
+        // doesn't bounce between portal guards, then explain.
+        await supabase.auth.signOut()
         setErrorMsg('Please use the Mobile App to access your Volunteer Dashboard.')
       }
     }

@@ -15,8 +15,10 @@ export default function EditActivityModal({ activity, onClose, onSave }: EditAct
   const [title, setTitle] = useState(activity.title || '')
   const [description, setDescription] = useState(activity.description || '')
   
-  // Format the date for the datetime-local input
-  const initialDate = activity.event_date ? new Date(activity.event_date).toISOString().slice(0, 16) : ''
+  // Format the date for the datetime-local input.
+  // Use LOCAL time here: toISOString() converts to UTC which shifts the displayed
+  // time by the timezone offset (e.g. +8h in the Philippines).
+  const initialDate = activity.event_date ? new Date(activity.event_date).toLocaleString('sv-SE').slice(0, 16) : ''
   const [eventDate, setEventDate] = useState(initialDate)
   
   const [municipality, setMunicipality] = useState(activity.municipality || '')
@@ -33,7 +35,8 @@ export default function EditActivityModal({ activity, onClose, onSave }: EditAct
       const updatedFields = {
         title,
         description,
-        event_date: new Date(eventDate).toISOString(),
+        // datetime-local gives a naive local time; treat it as Philippine local (UTC+8)
+        event_date: new Date(`${eventDate}:00+08:00`).toISOString(),
         municipality,
         barangay,
       }

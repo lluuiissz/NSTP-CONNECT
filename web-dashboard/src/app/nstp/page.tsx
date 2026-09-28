@@ -8,10 +8,6 @@ export default function NstpDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null) // Stores ID of user being acted upon
 
-  useEffect(() => {
-    fetchUnverifiedUsers()
-  }, [])
-
   const fetchUnverifiedUsers = async () => {
     setLoading(true)
     const { data, error } = await supabase
@@ -26,6 +22,11 @@ export default function NstpDashboardPage() {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    const t = setTimeout(fetchUnverifiedUsers, 0)
+    return () => clearTimeout(t)
+  }, [])
 
   const handleAction = async (userId: string, action: 'approve' | 'reject') => {
     setActionLoading(userId)

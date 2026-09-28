@@ -40,7 +40,8 @@ export default function LguActivitiesPage() {
         {
           title,
           description,
-          event_date: new Date(eventDate).toISOString(),
+          // datetime-local is naive local time; anchor to Philippine timezone (UTC+8)
+          event_date: new Date(`${eventDate}:00+08:00`).toISOString(),
           municipality,
           barangay,
           lat,

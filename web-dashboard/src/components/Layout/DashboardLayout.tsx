@@ -65,12 +65,24 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
     }
 
     if (role === 'lgu' && userData.role !== 'admin') {
-      router.push('/nstp') // Try redirecting to NSTP if they are NSTP
+      // If they are neither admin nor nstp (e.g. a volunteer on web), don't bounce
+      // them between portals forever — log them out and send them to login.
+      if (userData.role !== 'nstp') {
+        await supabase.auth.signOut()
+        router.push('/login')
+        return
+      }
+      router.push('/nstp')
       return
     }
 
     if (role === 'nstp' && userData.role !== 'nstp') {
-      router.push('/lgu') // Try redirecting to LGU if they are admin
+      if (userData.role !== 'admin') {
+        await supabase.auth.signOut()
+        router.push('/login')
+        return
+      }
+      router.push('/lgu')
       return
     }
 
