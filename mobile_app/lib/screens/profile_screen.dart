@@ -308,6 +308,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Details List
             _buildProfileItem(Icons.email_outlined, 'Email', _userProfile!['email']),
             const Divider(),
+            _buildProfileItem(Icons.phone_outlined, 'Mobile Number', _userProfile!['mobile_number'] ?? 'Not set'),
+            const Divider(),
             _buildProfileItem(Icons.class_outlined, 'NSTP Component', _userProfile!['nstp_component'] ?? 'Not set'),
             const Divider(),
             _buildProfileItem(Icons.location_city, 'Municipality', _userProfile!['municipality'] ?? 'Not set'),

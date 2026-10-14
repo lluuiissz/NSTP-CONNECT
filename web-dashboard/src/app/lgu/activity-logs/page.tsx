@@ -266,7 +266,7 @@ export default function ActivityLogsPage() {
           activity={editingActivity}
           onClose={() => setEditingActivity(null)}
           onSave={(updated) => {
-            setActivities(activities.map(a => a.id === updated.id ? { ...a, ...updated } : a))
+            setActivities(activities.map(a => a.id === updated.id ? { ...a, ...updated, volunteer_logs: a.volunteer_logs } : a))
             setEditingActivity(null)
           }}
         />

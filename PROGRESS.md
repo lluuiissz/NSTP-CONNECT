@@ -92,3 +92,10 @@ This file mirrors the AI's internal task tracking so you can monitor progress di
   - [x] Passed Next.js 16 (Turbopack) build with 18/18 static routes compiled and prerendered.
   - [x] Validated Flutter mobile codebase with `dart analyze lib/` with 0 errors, 0 warnings, and 0 infos (eliminated all avoid_print, prefer_const, and identifier warnings).
 
+- [x] **Phase 16: End-to-End Edge Case & Integrity Hardening**
+  - [x] Profile Screen: Added Mobile Number field to volunteer profile details view for reservist verification.
+  - [x] Student Records: Fixed real-time active session calculations by querying `created_at` in `volunteer_logs` sub-select.
+  - [x] Student Records: Replaced untyped arrays with `StudentRecord` interface and added null-safe hour formatting in CSV/PDF exports.
+  - [x] Activity Creation: Optimized push fan-out with deduplicated tokens, role exclusion, and concurrent delivery.
+  - [x] Activity Logs: Preserved `volunteer_logs` participant count when saving edited activity details.
+

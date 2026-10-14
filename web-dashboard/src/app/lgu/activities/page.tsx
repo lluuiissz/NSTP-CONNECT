@@ -57,24 +57,30 @@ export default function LguActivitiesPage() {
         const { data: users } = await supabase
           .from('users')
           .select('fcm_token')
-          .eq('municipality', municipality)
+          .ilike('municipality', municipality.trim())
+          .neq('role', 'admin')
+          .neq('role', 'nstp')
           .not('fcm_token', 'is', null);
 
         if (users && users.length > 0) {
-          for (const user of users) {
-            if (user.fcm_token) {
-              await fetch('/api/send-push', {
+          const uniqueTokens = Array.from(
+            new Set(users.map((u) => u.fcm_token?.trim()).filter((t): t is string => Boolean(t)))
+          );
+
+          await Promise.allSettled(
+            uniqueTokens.map((token) =>
+              fetch('/api/send-push', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  token: user.fcm_token,
+                  token,
                   title: 'New Activity Alert',
                   body: `A new activity "${title}" was created in ${barangay}, ${municipality}.`,
                   data: { type: 'activity' }
                 })
-              });
-            }
-          }
+              })
+            )
+          );
         }
       } catch (pushErr) {
         console.error("Failed to send push notifications:", pushErr);

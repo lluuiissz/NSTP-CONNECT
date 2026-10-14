@@ -7,9 +7,25 @@ import { Database, Search, Award, Clock, Download, FileText, Ban, Trash2, MapPin
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+interface StudentRecord {
+  id: string;
+  full_name: string;
+  email: string;
+  mobile_number?: string | null;
+  nstp_component?: string | null;
+  municipality?: string | null;
+  barangay?: string | null;
+  is_verified?: boolean;
+  totalHours: number;
+  volunteer_logs?: Array<{
+    service_hours?: number | string | null;
+    status?: string | null;
+    created_at?: string | null;
+  }>;
+}
+
 export default function NstpRecordsPage() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -32,7 +48,7 @@ export default function NstpRecordsPage() {
         .from('users')
         .select(`
           *,
-          volunteer_logs (service_hours, status)
+          volunteer_logs (service_hours, status, created_at)
         `)
         .eq('is_verified', true)
         .neq('role', 'admin')
@@ -164,7 +180,7 @@ export default function NstpRecordsPage() {
         `"${s.municipality || 'N/A'}"`,
         `"${s.barangay || 'N/A'}"`,
         `"${s.nstp_component || 'N/A'}"`,
-        `"${s.totalHours.toFixed(1)}"`
+        `"${((s.totalHours ?? 0)).toFixed(1)}"`
       ].join(','))
     ];
     
@@ -207,7 +223,7 @@ export default function NstpRecordsPage() {
       s.mobile_number || 'N/A',
       `${s.barangay || 'N/A'}, ${s.municipality || 'N/A'}`,
       s.nstp_component || 'N/A',
-      `${s.totalHours.toFixed(1)} hrs`
+      `${((s.totalHours ?? 0)).toFixed(1)} hrs`
     ]);
 
     autoTable(doc, {
@@ -414,7 +430,7 @@ export default function NstpRecordsPage() {
                           <Clock className="w-5 h-5 text-indigo-400" />
                         )}
                         <span className={`font-bold ${student.totalHours >= 40 ? 'text-yellow-600' : 'text-indigo-600'}`}>
-                          {student.totalHours.toFixed(1)} hrs
+                          {((student.totalHours ?? 0)).toFixed(1)} hrs
                         </span>
                       </div>
                     </td>
