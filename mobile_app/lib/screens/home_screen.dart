@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _syncPendingLogs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final pendingKey = 'pending_sync_logs';
+      const pendingKey = 'pending_sync_logs';
       List<String> pendingLogs = prefs.getStringList(pendingKey) ?? [];
       
       if (pendingLogs.isEmpty) return;
@@ -66,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
-      print("Sync error: $e");
+      debugPrint("Sync error: $e");
     }
   }
 
@@ -131,10 +131,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           : _activities.isEmpty
-              ? Center(
+              ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Icon(Icons.event_busy, size: 80, color: Colors.grey),
                       SizedBox(height: 16),
                       Text('No activities found near you.', 

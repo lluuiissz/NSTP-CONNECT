@@ -90,5 +90,5 @@ This file mirrors the AI's internal task tracking so you can monitor progress di
   - [x] Upgraded raw certificate images in verification view to Next.js `Image` component.
   - [x] Passed ESLint with 0 errors and 0 warnings.
   - [x] Passed Next.js 16 (Turbopack) build with 18/18 static routes compiled and prerendered.
-  - [x] Validated Flutter mobile codebase with `dart analyze lib/` with 0 errors.
+  - [x] Validated Flutter mobile codebase with `dart analyze lib/` with 0 errors, 0 warnings, and 0 infos (eliminated all avoid_print, prefer_const, and identifier warnings).
 

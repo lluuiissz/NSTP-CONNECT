@@ -57,7 +57,7 @@ class _InboxScreenState extends State<InboxScreen> {
         }
       }
     } catch (e) {
-      print("Inbox fetch error: $e");
+      debugPrint("Inbox fetch error: $e");
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -86,10 +86,10 @@ class _InboxScreenState extends State<InboxScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _notifications.isEmpty
-              ? Center(
+              ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Icon(Icons.inbox, size: 80, color: Colors.grey),
                       SizedBox(height: 16),
                       Text('No messages yet.', 

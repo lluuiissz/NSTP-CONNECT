@@ -193,7 +193,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
       } catch (e) {
         // Network/GPS hiccups shouldn't interrupt tracking — the next
         // ping cycle will try again.
-        print('GPS ping failed (will retry): $e');
+        debugPrint('GPS ping failed (will retry): $e');
       }
     });
   }
@@ -349,7 +349,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
       // If network fails on stop, we queue it to sync later
       try {
         final prefs = await SharedPreferences.getInstance();
-        final pendingKey = 'pending_sync_logs';
+        const pendingKey = 'pending_sync_logs';
         List<String> pendingLogs = prefs.getStringList(pendingKey) ?? [];
         
         final userId = supabase.auth.currentUser?.id;

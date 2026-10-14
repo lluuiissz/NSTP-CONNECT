@@ -125,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // 2. Send OTP via custom Next.js Backend
         // Using 127.0.0.1 universally because we will use ADB reverse proxy for physical Android devices!
-        final backendHost = 'https://nstp-connect.vercel.app';
+        const backendHost = 'https://nstp-connect.vercel.app';
         final response = await http.post(
           Uri.parse('$backendHost/api/send-otp'),
           headers: {'Content-Type': 'application/json'},
@@ -201,10 +201,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const Icon(Icons.volunteer_activism,
                   size: 80, color: Color(0xFF2563EB)),
               const SizedBox(height: 24),
-              Text(
+              const Text(
                 'NSTP-CONNECT',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF1E293B),
@@ -409,7 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             _certificateImage != null
                                 ? 'Tap to change file'
                                 : 'Tap to select file from gallery',
-                            style: TextStyle(
+                            style: const TextStyle(
                                 fontSize: 12, color: Colors.blueGrey)),
                       ],
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart'; // supabase instance
 
@@ -58,7 +59,7 @@ class NotificationService {
         await supabase.from('users').update({'fcm_token': token}).eq('id', user.id);
       }
     } catch (e) {
-      print("Failed to upload FCM token: $e");
+      debugPrint("Failed to upload FCM token: $e");
     }
   }
 
@@ -83,7 +84,7 @@ class NotificationService {
           .single();
       _userMunicipality = data['municipality'] as String?;
     } catch (e) {
-      print("Failed to load municipality for notification filtering: $e");
+      debugPrint("Failed to load municipality for notification filtering: $e");
     }
   }
 

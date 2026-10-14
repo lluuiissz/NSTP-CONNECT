@@ -95,7 +95,7 @@ class _OTPScreenState extends State<OTPScreen> {
               'mobile_number': mobileNumber,
             }).eq('id', res.user!.id);
           } catch (uploadError) {
-            print('Upload error: $uploadError');
+            debugPrint('Upload error: $uploadError');
           }
         } else {
           // If no certificate was uploaded, still guarantee mobile_number is saved

@@ -1,3 +1,4 @@
+// ignore: constant_identifier_names
 const Map<String, List<String>> AGUSAN_DEL_SUR_LOCATIONS = {
   'Bayugan City': ['Berseba', 'Bucac', 'Cagbas', 'Calaitan', 'Canayugan', 'Charito', 'Claro M. Recto', 'Del Carmen', 'Fili', 'Gamao', 'Getsemane', 'Grace Estate', 'Hamogaway', 'Ilaud', 'Magkiangkang', 'Mahayag', 'Mabuhay', 'Macopa', 'Magugpo', 'Maygatasan', 'Montevista', 'Mt. Ararat', 'Mt. Carmel', 'Mt. Olive', 'New Salem', 'Noli', 'Osmeña', 'Panaytay', 'Pinagalaan', 'Poblacion', 'Sagmone', 'Salvacion', 'San Agustin', 'San Isidro', 'San Juan', 'San Lorenzo', 'San Mateo', 'Santa Irene', 'Santa Teresita', 'Taglatawan', 'Tagubay', 'Verdu', 'Villa Undayon', 'Wawa'],
   'Bunawan': ['Bunawan Brook', 'Consuelo', 'Libertad', 'Mambalili', 'Mandacpan', 'Marcos', 'Nueva Era', 'Poblacion', 'San Andres', 'San Teodoro'],
