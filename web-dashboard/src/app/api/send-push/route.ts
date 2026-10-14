@@ -10,7 +10,7 @@ if (formattedPrivateKey) {
   if (formattedPrivateKey.startsWith('"') && formattedPrivateKey.endsWith('"')) {
     try {
       formattedPrivateKey = JSON.parse(formattedPrivateKey);
-    } catch(e) {
+    } catch {
       formattedPrivateKey = formattedPrivateKey.replace(/^"|"$/g, '');
     }
   }
@@ -67,10 +67,10 @@ export async function POST(request: Request) {
     const response = await getMessaging().send(message);
     
     return NextResponse.json({ success: true, messageId: response });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error sending push notification:', error);
     return NextResponse.json(
-      { error: 'Failed to send notification', details: error.message },
+      { error: 'Failed to send notification', details: (error as Error).message },
       { status: 500 }
     );
   }

@@ -5,10 +5,22 @@ import { supabase } from '@/lib/supabase'
 import { AGUSAN_DEL_SUR_LOCATIONS } from '@/lib/locations'
 import { X } from 'lucide-react'
 
+export interface ActivityItem {
+  id: string
+  title: string
+  description?: string | null
+  event_date: string
+  municipality: string
+  barangay: string
+  lat?: number | null
+  lng?: number | null
+  volunteer_logs?: Array<{ user_id: string }>
+}
+
 interface EditActivityModalProps {
-  activity: any
+  activity: ActivityItem
   onClose: () => void
-  onSave: (updatedActivity: any) => void
+  onSave: (updatedActivity: ActivityItem) => void
 }
 
 export default function EditActivityModal({ activity, onClose, onSave }: EditActivityModalProps) {
@@ -50,10 +62,10 @@ export default function EditActivityModal({ activity, onClose, onSave }: EditAct
 
       if (error) throw error
 
-      onSave(data)
-    } catch (err: any) {
+      onSave(data as ActivityItem)
+    } catch (err: unknown) {
       console.error('Error updating activity:', err)
-      setErrorMsg(err.message || 'Failed to update activity')
+      setErrorMsg((err as Error).message || 'Failed to update activity')
     } finally {
       setLoading(false)
     }

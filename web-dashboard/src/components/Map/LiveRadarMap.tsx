@@ -7,7 +7,7 @@ import L from 'leaflet'
 import { supabase } from '@/lib/supabase'
 
 // Fix for default marker icons in React Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
@@ -196,7 +196,7 @@ export default function LiveRadarMap() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Live Volunteer Radar</h2>
-          <p className="text-slate-500 text-sm">Real-time tracking of today's volunteers.</p>
+          <p className="text-slate-500 text-sm">Real-time tracking of today&apos;s volunteers.</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">

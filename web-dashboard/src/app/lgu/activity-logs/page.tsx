@@ -5,15 +5,15 @@ import { supabase } from '@/lib/supabase';
 import { ClipboardList, Calendar, MapPin, Trash2, Users, Download, FileText, Edit2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import EditActivityModal from '@/components/Dashboard/EditActivityModal';
+import EditActivityModal, { ActivityItem } from '@/components/Dashboard/EditActivityModal';
 
 export default function ActivityLogsPage() {
-  const [activities, setActivities] = useState<any[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [pageFrom, setPageFrom] = useState(0);
-  const [editingActivity, setEditingActivity] = useState<any>(null);
+  const [editingActivity, setEditingActivity] = useState<ActivityItem | null>(null);
 
   const PAGE_SIZE = 100;
 
@@ -51,7 +51,6 @@ export default function ActivityLogsPage() {
   useEffect(() => {
     const t = setTimeout(fetchActivities, 0);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDelete = async (id: string) => {
@@ -92,7 +91,7 @@ export default function ActivityLogsPage() {
         `"${a.municipality}"`,
         `"${a.barangay}"`,
         `"${new Date(a.event_date).toLocaleDateString()}"`,
-        `"${new Set(a.volunteer_logs?.map((l: any) => l.user_id)).size}"`,
+        `"${new Set((a.volunteer_logs || []).map((l: { user_id: string }) => l.user_id)).size}"`,
         `"${(a.description || '').replace(/"/g, '""')}"`
       ].join(','))
     ];
@@ -133,7 +132,7 @@ export default function ActivityLogsPage() {
       a.title,
       `${a.barangay}, ${a.municipality}`,
       new Date(a.event_date).toLocaleDateString(),
-      new Set(a.volunteer_logs?.map((l: any) => l.user_id)).size.toString()
+      new Set((a.volunteer_logs || []).map((l: { user_id: string }) => l.user_id)).size.toString()
     ]);
 
     autoTable(doc, {
@@ -221,7 +220,7 @@ export default function ActivityLogsPage() {
                     <td className="p-4 text-center">
                       <div className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
                         <Users className="w-4 h-4 mr-1" />
-                        {new Set(activity.volunteer_logs?.map((l: any) => l.user_id)).size}
+                        {new Set(activity.volunteer_logs?.map((l: { user_id: string }) => l.user_id)).size}
                       </div>
                     </td>
                     <td className="p-4 text-right">

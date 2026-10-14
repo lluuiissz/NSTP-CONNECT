@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AGUSAN_DEL_SUR_LOCATIONS } from '@/lib/locations';
 import { Megaphone, Send, AlertTriangle, Users } from 'lucide-react';
@@ -66,29 +66,34 @@ export default function BroadcastPage() {
 
       if (error) throw error;
 
-      // Trigger Push Notifications
-      let query = supabase.from('users').select('fcm_token').not('fcm_token', 'is', null);
+      // Trigger Push Notifications to volunteers
+      let query = supabase
+        .from('users')
+        .select('fcm_token')
+        .neq('role', 'admin')
+        .neq('role', 'nstp')
+        .not('fcm_token', 'is', null);
       if (targetMunicipality.trim() !== '') {
         query = query.ilike('municipality', targetMunicipality.trim());
       }
       
       const { data: users } = await query;
       if (users && users.length > 0) {
+        // Deduplicate tokens across users/devices
+        const uniqueTokens = Array.from(new Set(users.map((u) => u.fcm_token).filter(Boolean)));
         const results = await Promise.allSettled(
-          users
-            .filter((user) => user.fcm_token)
-            .map((user) =>
-              fetch('/api/send-push', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  token: user.fcm_token,
-                  title: title,
-                  body: message,
-                  data: { type: 'broadcast' }
-                })
+          uniqueTokens.map((token) =>
+            fetch('/api/send-push', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token: token,
+                title: title,
+                body: message,
+                data: { type: 'broadcast' }
               })
-            )
+            })
+          )
         );
         const failed = results.filter(r => r.status === 'rejected').length;
         if (failed > 0) {
@@ -145,14 +150,14 @@ export default function BroadcastPage() {
           <Megaphone className="w-8 h-8 mr-3 text-red-600" />
           Emergency Broadcasts
         </h1>
-        <p className="text-gray-500 mt-2">Send instant push notifications to all volunteers' mobile devices.</p>
+        <p className="text-gray-500 mt-2">Send instant push notifications to all volunteers&apos; mobile devices.</p>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden max-w-2xl">
         <div className="bg-red-50 p-4 border-b border-red-100 flex items-start">
           <AlertTriangle className="w-5 h-5 text-red-600 mr-3 mt-0.5" />
           <p className="text-sm text-red-800">
-            <strong>Warning:</strong> These messages trigger instant push notifications on volunteers' phones. Use this panel strictly for emergencies, mustering, or critical announcements.
+            <strong>Warning:</strong> These messages trigger instant push notifications on volunteers&apos; phones. Use this panel strictly for emergencies, mustering, or critical announcements.
           </p>
         </div>
 

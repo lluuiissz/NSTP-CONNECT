@@ -56,10 +56,10 @@ export async function POST(request: Request) {
       { success: true, message: 'OTP sent successfully' },
       { headers: corsHeaders }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error sending OTP email:', error);
     return NextResponse.json(
-      { error: 'Failed to send OTP email', details: error.message },
+      { error: 'Failed to send OTP email', details: (error as Error).message },
       { status: 500, headers: corsHeaders }
     );
   }

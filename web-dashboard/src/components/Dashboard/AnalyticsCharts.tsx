@@ -10,12 +10,37 @@ import {
   Tooltip,
   ResponsiveContainer,
   LineChart,
-  Line,
-  Legend
+  Line
 } from 'recharts';
 
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number }>;
+  label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white/90 backdrop-blur-sm border border-slate-200 p-3 rounded-lg shadow-lg">
+        <p className="font-bold text-slate-800 mb-1">{label}</p>
+        <p className="text-blue-600 text-sm font-medium">
+          {payload[0].name === 'hours' ? 'Total Hours' : 'Check-ins'}: {payload[0].value}
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
+interface ChartLogItem {
+  activities?: { municipality?: string } | null;
+  service_hours?: number | string | null;
+  created_at: string;
+}
+
 interface ChartProps {
-  logs: any[];
+  logs: ChartLogItem[];
 }
 
 export default function AnalyticsCharts({ logs }: ChartProps) {
@@ -60,20 +85,6 @@ export default function AnalyticsCharts({ logs }: ChartProps) {
     date: key,
     checkins: dailyCheckinsMap[key]
   }));
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white/90 backdrop-blur-sm border border-slate-200 p-3 rounded-lg shadow-lg">
-          <p className="font-bold text-slate-800 mb-1">{label}</p>
-          <p className="text-blue-600 text-sm font-medium">
-            {payload[0].name === 'hours' ? 'Total Hours' : 'Check-ins'}: {payload[0].value}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">

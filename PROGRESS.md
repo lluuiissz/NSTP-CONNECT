@@ -75,3 +75,20 @@ This file mirrors the AI's internal task tracking so you can monitor progress di
   - [x] Restructured sidebar routing to prevent layout collision between LGU and NSTP portals.
   - [x] Restricted Unverified volunteers from starting activity timers in the mobile app.
   - [x] Implemented client-side Route Protection (Auth Guard) to secure LGU and NSTP dashboard URLs.
+
+- [x] **Phase 14: Directory Filters, Live Radar Attendance, and Mobile Session Persistence**
+  - [x] Dynamic ROTC, CWTS, and LTS component counters in Student Directory linked to Municipality and Barangay filters.
+  - [x] Added required Philippine phone validation and schema persistence to Reservist Registration.
+  - [x] Fixed emergency broadcast delivery for targeted municipalities with spaced names (PostgREST grammar fix & case-insensitive token queries).
+  - [x] Live Radar Map: Popup direct-calling button (`tel:`) and contact display for rapid attendance verification.
+  - [x] Mobile App: Active session persistence on launch to eliminate back-to-login bounces.
+  - [x] System Quality Audit: Fixed React 19 component-in-render issues, strict typing, and verified Next.js 16 production build.
+
+- [x] **Phase 15: Static Analysis & Production Hardening**
+  - [x] Resolved ESLint `react-hooks/set-state-in-effect` cascading render issues across LGU and NSTP dashboards via deferred timeouts.
+  - [x] Eliminated all `any` types in `activity-logs`, `lgu/page.tsx`, `nstp/admins`, and `nstp/page.tsx` with strongly-typed interfaces.
+  - [x] Upgraded raw certificate images in verification view to Next.js `Image` component.
+  - [x] Passed ESLint with 0 errors and 0 warnings.
+  - [x] Passed Next.js 16 (Turbopack) build with 18/18 static routes compiled and prerendered.
+  - [x] Validated Flutter mobile codebase with `dart analyze lib/` with 0 errors.
+

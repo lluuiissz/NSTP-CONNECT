@@ -1,10 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 
+interface UnverifiedUser {
+  id: string
+  full_name: string
+  email: string
+  nstp_component?: string
+  municipality?: string
+  barangay?: string
+  certificate_url?: string
+}
+
 export default function NstpDashboardPage() {
-  const [unverifiedUsers, setUnverifiedUsers] = useState<any[]>([])
+  const [unverifiedUsers, setUnverifiedUsers] = useState<UnverifiedUser[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null) // Stores ID of user being acted upon
 
@@ -76,7 +87,7 @@ export default function NstpDashboardPage() {
               {/* Certificate/ID Area */}
               <div className="w-full md:w-1/3 bg-slate-100 flex items-center justify-center p-8 border-b md:border-b-0 md:border-r border-slate-200 relative group">
                 {user.certificate_url ? (
-                  <img src={user.certificate_url} alt="NSTP Certificate" className="max-h-48 object-contain" />
+                  <Image src={user.certificate_url} alt="NSTP Certificate" width={300} height={200} unoptimized className="max-h-48 object-contain w-auto h-auto" />
                 ) : (
                   <div className="text-center">
                     <div className="text-5xl mb-2">📄</div>

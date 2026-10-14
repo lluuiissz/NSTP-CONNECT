@@ -43,7 +43,7 @@ export default function DownloadAppPage() {
         </a>
 
         <p className="text-xs text-blue-300/60 leading-relaxed">
-          If prompted by your phone, you may need to go to Settings &gt; Security and allow "Install from unknown sources" to install this prototype.
+          If prompted by your phone, you may need to go to Settings &gt; Security and allow &quot;Install from unknown sources&quot; to install this prototype.
         </p>
 
       </div>

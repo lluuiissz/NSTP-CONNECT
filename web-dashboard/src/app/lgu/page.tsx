@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const LiveRadarMap = dynamic(
@@ -22,18 +22,22 @@ const AnalyticsCharts = dynamic(
   { ssr: false } // Recharts uses browser APIs
 )
 
+interface DashboardLog {
+  id?: string
+  status?: string
+  created_at: string
+  service_hours?: number | string | null
+  activities?: { municipality?: string } | null
+}
+
 export default function LguDashboardPage() {
   const [activeVolunteers, setActiveVolunteers] = useState(0)
   const [ongoingActivities, setOngoingActivities] = useState(0)
   const [totalHours, setTotalHours] = useState(0)
-  const [logs, setLogs] = useState<any[]>([])
+  const [logs, setLogs] = useState<DashboardLog[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchDashboardData()
-  }, [])
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       // 1. Fetch total unique volunteers (users with role 'volunteer')
       const { count: volsCount } = await supabase
@@ -75,7 +79,14 @@ export default function LguDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchDashboardData()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [fetchDashboardData])
 
   return (
     <div className="space-y-6">

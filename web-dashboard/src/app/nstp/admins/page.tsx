@@ -1,11 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Shield, UserPlus, Trash2, Mail, User, ShieldCheck } from 'lucide-react'
 
+interface AdminUser {
+  id: string
+  full_name: string
+  email: string
+  role: string
+  created_at?: string
+}
+
 export default function AdminManagementPage() {
-  const [admins, setAdmins] = useState<any[]>([])
+  const [admins, setAdmins] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -18,11 +26,7 @@ export default function AdminManagementPage() {
     role: 'admin' // default to LGU Admin
   })
 
-  useEffect(() => {
-    fetchAdmins()
-  }, [])
-
-  const fetchAdmins = async () => {
+  const fetchAdmins = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('users')
@@ -37,7 +41,14 @@ export default function AdminManagementPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchAdmins()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [fetchAdmins])
 
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,14 +73,14 @@ export default function AdminManagementPage() {
       setFormData({ fullName: '', email: '', password: '', role: 'admin' })
       fetchAdmins() // Refresh list
 
-    } catch (err: any) {
-      setErrorMsg(err.message)
+    } catch (err: unknown) {
+      setErrorMsg((err as Error).message)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleDeleteAdmin = async (id: string, role: string) => {
+  const handleDeleteAdmin = async (id: string) => {
     if (!confirm('Are you sure you want to revoke this admin access? This removes them from the dashboard.')) return
     
     try {
@@ -243,7 +254,7 @@ export default function AdminManagementPage() {
                         </td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => handleDeleteAdmin(admin.id, admin.role)}
+                            onClick={() => handleDeleteAdmin(admin.id)}
                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Revoke Access"
                           >

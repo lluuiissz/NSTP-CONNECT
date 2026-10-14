@@ -12,7 +12,10 @@ export default function WelcomePage() {
   // In a real production scenario, we would determine the host dynamically if needed
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setDownloadUrl(`${window.location.origin}/download-app`)
+      const timer = setTimeout(() => {
+        setDownloadUrl(`${window.location.origin}/download-app`)
+      }, 0)
+      return () => clearTimeout(timer)
     }
   }, [])
 

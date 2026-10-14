@@ -7,7 +7,7 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 async function createAdmin() {
   console.log('Creating LGU Admin account...')
-  const { data: adminAuth, error: adminErr } = await supabase.auth.signUp({
+  const { error: adminErr } = await supabase.auth.signUp({
     email: 'admin@lgu.gov.ph',
     password: 'password123',
     options: {
@@ -29,7 +29,7 @@ async function createAdmin() {
   }
 
   console.log('\nCreating NSTP Office account...')
-  const { data: nstpAuth, error: nstpErr } = await supabase.auth.signUp({
+  const { error: nstpErr } = await supabase.auth.signUp({
     email: 'office@nstp.edu.ph',
     password: 'password123',
     options: {

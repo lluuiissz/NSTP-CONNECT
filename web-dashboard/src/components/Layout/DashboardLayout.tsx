@@ -42,52 +42,60 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
   const [isAuthorized, setIsAuthorized] = useState(false)
 
   useEffect(() => {
+    let cancelled = false;
+
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        if (!cancelled) router.push('/login')
+        return
+      }
+
+      // Verify role matches the portal they are trying to access
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+
+      if (!userData) {
+        if (!cancelled) router.push('/login')
+        return
+      }
+
+      if (role === 'lgu' && userData.role !== 'admin') {
+        if (!cancelled) {
+          if (userData.role !== 'nstp') {
+            await supabase.auth.signOut()
+            router.push('/login')
+            return
+          }
+          router.push('/nstp')
+        }
+        return
+      }
+
+      if (role === 'nstp' && userData.role !== 'nstp') {
+        if (!cancelled) {
+          if (userData.role !== 'admin') {
+            await supabase.auth.signOut()
+            router.push('/login')
+            return
+          }
+          router.push('/lgu')
+        }
+        return
+      }
+
+      if (!cancelled) setIsAuthorized(true)
+    }
+
     checkAuth()
-  }, [pathname])
 
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      router.push('/login')
-      return
+    return () => {
+      cancelled = true;
     }
-
-    // Verify role matches the portal they are trying to access
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
-
-    if (!userData) {
-      router.push('/login')
-      return
-    }
-
-    if (role === 'lgu' && userData.role !== 'admin') {
-      // If they are neither admin nor nstp (e.g. a volunteer on web), don't bounce
-      // them between portals forever — log them out and send them to login.
-      if (userData.role !== 'nstp') {
-        await supabase.auth.signOut()
-        router.push('/login')
-        return
-      }
-      router.push('/nstp')
-      return
-    }
-
-    if (role === 'nstp' && userData.role !== 'nstp') {
-      if (userData.role !== 'admin') {
-        await supabase.auth.signOut()
-        router.push('/login')
-        return
-      }
-      router.push('/lgu')
-      return
-    }
-
-    setIsAuthorized(true)
-  }
+  }, [pathname, router, role])
 
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault()
