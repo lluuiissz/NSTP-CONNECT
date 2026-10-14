@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "371719573760",
+    "project_id": "nstp-connect-63afa",
+    "storage_bucket": "nstp-connect-63afa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:371719573760:android:8663eb3c31ca3f90fba3e5",
+        "android_client_info": {
+          "package_name": "com.example.mobile_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7E6R24hyuE8jvwQLHbN3tJxf8uk1MKO0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

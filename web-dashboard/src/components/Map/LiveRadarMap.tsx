@@ -44,6 +44,9 @@ interface RadarVolunteer {
   users: {
     full_name: string | null
     mobile_number: string | null
+    nstp_component: string | null
+    barangay: string | null
+    municipality: string | null
   } | null
 }
 
@@ -55,7 +58,19 @@ type RawLog = {
   status: string
   service_hours: number | null
   created_at: string
-  users: { full_name: string | null; mobile_number: string | null } | { full_name: string | null; mobile_number: string | null }[] | null
+  users: {
+    full_name: string | null
+    mobile_number: string | null
+    nstp_component: string | null
+    barangay: string | null
+    municipality: string | null
+  } | {
+    full_name: string | null
+    mobile_number: string | null
+    nstp_component: string | null
+    barangay: string | null
+    municipality: string | null
+  }[] | null
 }
 
 export default function LiveRadarMap() {
@@ -85,7 +100,10 @@ export default function LiveRadarMap() {
         created_at,
         users (
           full_name,
-          mobile_number
+          mobile_number,
+          nstp_component,
+          barangay,
+          municipality
         )
       `)
       .gte('created_at', startOfToday())
@@ -105,7 +123,7 @@ export default function LiveRadarMap() {
   const fetchUserForLog = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from('users')
-      .select('full_name, mobile_number')
+      .select('full_name, mobile_number, nstp_component, barangay, municipality')
       .eq('id', userId)
       .single()
     return data
@@ -214,31 +232,64 @@ export default function LiveRadarMap() {
                 position={[vol.lat, vol.lng]} 
                 icon={vol.status === 'active' ? activeIcon : inactiveIcon}
               >
-                <Popup>
-                  <div className="font-semibold text-slate-800">
-                    {vol.users?.full_name || 'Unknown Volunteer'}
+                <Popup className="attendance-popup">
+                  <div className="p-1 min-w-[200px]">
+                    <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2 mb-2">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm leading-tight">
+                          {vol.users?.full_name || 'Volunteer'}
+                        </h4>
+                        {(vol.users?.barangay || vol.users?.municipality) && (
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {[vol.users?.barangay, vol.users?.municipality].filter(Boolean).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                      {vol.users?.nstp_component && (
+                        <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase">
+                          {vol.users.nstp_component}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Attendance Verification & Mobile Call */}
+                    <div className="my-2">
+                      <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                        Attendance Contact
+                      </div>
+                      {vol.users?.mobile_number ? (
+                        <a
+                          href={`tel:${vol.users.mobile_number}`}
+                          className="flex items-center justify-center gap-1.5 w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-1.5 px-3 rounded-lg text-xs transition-all shadow-sm"
+                          title="Call volunteer for attendance verification"
+                        >
+                          <span>📞</span>
+                          <span>Call: {vol.users.mobile_number}</span>
+                        </a>
+                      ) : (
+                        <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                          <span>⚠️</span>
+                          <span>No mobile number registered</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                      {vol.status === 'active' ? (
+                        <div className="text-green-600 font-bold flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                          </span>
+                          Currently Active
+                        </div>
+                      ) : (
+                        <div className="text-slate-500 font-medium">
+                          Completed: <strong className="text-slate-700">{vol.service_hours} hrs</strong>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {vol.users?.mobile_number && (
-                    <a
-                      href={`tel:${vol.users.mobile_number}`}
-                      className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      📞 {vol.users.mobile_number}
-                    </a>
-                  )}
-                  {vol.status === 'active' ? (
-                    <div className="text-xs text-green-600 font-bold mt-1 flex items-center gap-1">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                      </span>
-                      Currently Active
-                    </div>
-                  ) : (
-                    <div className="text-xs text-slate-500 font-medium mt-1">
-                      Completed ({vol.service_hours} hrs)
-                    </div>
-                  )}
                 </Popup>
               </Marker>
             )

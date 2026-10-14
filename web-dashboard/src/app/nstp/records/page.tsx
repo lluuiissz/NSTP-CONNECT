@@ -83,24 +83,32 @@ export default function NstpRecordsPage() {
     return () => clearTimeout(t);
   }, []);
 
-  const filteredStudents = students.filter(s => {
+  // Location-filtered students (used for dynamic component counters based on selected location/search)
+  const locationFilteredStudents = students.filter(s => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
+      !term ||
       s.full_name?.toLowerCase().includes(term) ||
       s.nstp_component?.toLowerCase().includes(term) ||
       s.mobile_number?.includes(searchTerm.trim());
     const matchesMunicipality = !filterMunicipality || s.municipality === filterMunicipality;
     const matchesBarangay = !filterBarangay || s.barangay === filterBarangay;
-    const matchesComponent = !filterComponent || s.nstp_component === filterComponent;
-    return matchesSearch && matchesMunicipality && matchesBarangay && matchesComponent;
+    return matchesSearch && matchesMunicipality && matchesBarangay;
   });
 
-  // Enrollment per NSTP component within the current filter selection
+  // Dynamic summary counters showing students under each component based on selected location
   const componentCounts = {
-    ROTC: filteredStudents.filter(s => s.nstp_component === 'ROTC').length,
-    CWTS: filteredStudents.filter(s => s.nstp_component === 'CWTS').length,
-    LTS: filteredStudents.filter(s => s.nstp_component === 'LTS').length,
+    ROTC: locationFilteredStudents.filter(s => s.nstp_component?.trim().toUpperCase() === 'ROTC').length,
+    CWTS: locationFilteredStudents.filter(s => s.nstp_component?.trim().toUpperCase() === 'CWTS').length,
+    LTS: locationFilteredStudents.filter(s => s.nstp_component?.trim().toUpperCase() === 'LTS').length,
+    total: locationFilteredStudents.length,
   };
+
+  // Final table filter that additionally applies the NSTP component dropdown filter
+  const filteredStudents = locationFilteredStudents.filter(s => {
+    return !filterComponent || s.nstp_component?.trim().toUpperCase() === filterComponent.trim().toUpperCase();
+  });
+
   const hasActiveFilters = !!(filterMunicipality || filterBarangay || filterComponent || searchTerm);
 
   const handleUpdateStatus = async (studentId: string, action: 'suspend' | 'delete') => {
@@ -220,9 +228,9 @@ export default function NstpRecordsPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center">
             <Database className="w-8 h-8 mr-3 text-indigo-600" />
-            Verified Masterlist
+            Student Directory &amp; Masterlist
           </h1>
-          <p className="text-gray-500 mt-2">Manage verified NSTP graduates and monitor their accumulated service hours.</p>
+          <p className="text-gray-500 mt-2">Manage verified NSTP students, view component breakdowns by location, and monitor service hours.</p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -316,8 +324,15 @@ export default function NstpRecordsPage() {
         )}
       </div>
 
-      {/* Enrollment counts per component (updates with the filters above) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      {/* Enrollment counts per component (updates dynamically with the location filters) */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-600">Total Students</p>
+            <p className="text-3xl font-bold text-slate-800">{componentCounts.total}</p>
+          </div>
+          <span className="text-xs font-medium text-slate-600 bg-slate-200 px-3 py-1 rounded-full">filtered</span>
+        </div>
         <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-green-700">ROTC</p>

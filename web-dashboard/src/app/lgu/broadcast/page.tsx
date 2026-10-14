@@ -69,7 +69,7 @@ export default function BroadcastPage() {
       // Trigger Push Notifications
       let query = supabase.from('users').select('fcm_token').not('fcm_token', 'is', null);
       if (targetMunicipality.trim() !== '') {
-        query = query.eq('municipality', targetMunicipality.trim());
+        query = query.ilike('municipality', targetMunicipality.trim());
       }
       
       const { data: users } = await query;
@@ -121,7 +121,7 @@ export default function BroadcastPage() {
         .neq('role', 'nstp')
         .not('fcm_token', 'is', null);
       if (trimmedTarget !== '') {
-        query = query.eq('municipality', trimmedTarget);
+        query = query.ilike('municipality', trimmedTarget);
       }
       const { count, error } = await query;
       if (!cancelled && !error) setRecipientCount(count ?? 0);

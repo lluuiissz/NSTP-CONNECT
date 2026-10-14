@@ -27,7 +27,7 @@ BEGIN
         new.id,
         COALESCE(new.raw_user_meta_data->>'full_name', new.email),
         new.email,
-        COALESCE((new.raw_user_meta_data->>'role')::public.user_role, 'volunteer'::public.user_role),
+        'volunteer',  -- SECURITY: never trust client-supplied role metadata; promote via service-role API only
         new.raw_user_meta_data->>'nstp_component',
         new.raw_user_meta_data->>'municipality',
         new.raw_user_meta_data->>'barangay',
