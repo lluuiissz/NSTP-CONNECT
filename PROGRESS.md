@@ -99,3 +99,10 @@ This file mirrors the AI's internal task tracking so you can monitor progress di
   - [x] Activity Creation: Optimized push fan-out with deduplicated tokens, role exclusion, and concurrent delivery.
   - [x] Activity Logs: Preserved `volunteer_logs` participant count when saving edited activity details.
 
+- [x] **Phase 17: Supabase Schema Synchronization & Mobile App Resilience**
+  - [x] Diagnosed Supabase Auth 500 error (`Database error saving new user`) and PostgREST 400 error (`Could not find mobile_number column in schema cache`).
+  - [x] Verified via live query that `public.users` in project `alplydafnokiucslivsd` was missing `mobile_number` while `handle_new_user()` trigger was attempting to insert into it.
+  - [x] Updated `supabase/migration_add_mobile_number.sql` with idempotent `ADD COLUMN IF NOT EXISTS`, `ON CONFLICT DO UPDATE` handling, and immediate `NOTIFY pgrst, 'reload schema'`.
+  - [x] Added graceful client-side fallbacks in `profile_screen.dart` and `otp_screen.dart` so user profile edits and OTP registration never crash if database schema sync is in flight.
+
+

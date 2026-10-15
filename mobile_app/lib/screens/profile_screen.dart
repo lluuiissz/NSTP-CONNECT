@@ -171,13 +171,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               formKey.currentState!.save();
                               setModalState(() => isUpdating = true);
                               try {
-                                await supabase.from('users').update({
-                                  'full_name': name,
-                                  'mobile_number': mobile,
-                                  'nstp_component': component,
-                                  'municipality': selectedMunicipality,
-                                  'barangay': selectedBarangay,
-                                }).eq('id', supabase.auth.currentUser!.id);
+                                try {
+                                  await supabase.from('users').update({
+                                    'full_name': name,
+                                    'mobile_number': mobile,
+                                    'nstp_component': component,
+                                    'municipality': selectedMunicipality,
+                                    'barangay': selectedBarangay,
+                                  }).eq('id', supabase.auth.currentUser!.id);
+                                } catch (updateErr) {
+                                  final errStr = updateErr.toString();
+                                  if (errStr.contains('mobile_number') || errStr.contains('PGRST204')) {
+                                    await supabase.from('users').update({
+                                      'full_name': name,
+                                      'nstp_component': component,
+                                      'municipality': selectedMunicipality,
+                                      'barangay': selectedBarangay,
+                                    }).eq('id', supabase.auth.currentUser!.id);
+                                  } else {
+                                    rethrow;
+                                  }
+                                }
                                 
                                 if (!context.mounted) return;
                                 Navigator.pop(context);

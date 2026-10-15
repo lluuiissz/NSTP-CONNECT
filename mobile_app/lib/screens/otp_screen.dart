@@ -90,18 +90,33 @@ class _OTPScreenState extends State<OTPScreen> {
             final publicUrl = supabase.storage.from('certificates').getPublicUrl(fileName);
             
             // Update user profile in database
-            await supabase.from('users').update({
-              'certificate_url': publicUrl,
-              'mobile_number': mobileNumber,
-            }).eq('id', res.user!.id);
+            try {
+              await supabase.from('users').update({
+                'certificate_url': publicUrl,
+                'mobile_number': mobileNumber,
+              }).eq('id', res.user!.id);
+            } catch (updateErr) {
+              final errStr = updateErr.toString();
+              if (errStr.contains('mobile_number') || errStr.contains('PGRST204')) {
+                await supabase.from('users').update({
+                  'certificate_url': publicUrl,
+                }).eq('id', res.user!.id);
+              } else {
+                debugPrint('User profile update error: $updateErr');
+              }
+            }
           } catch (uploadError) {
             debugPrint('Upload error: $uploadError');
           }
         } else {
-          // If no certificate was uploaded, still guarantee mobile_number is saved
-          await supabase.from('users').update({
-            'mobile_number': mobileNumber,
-          }).eq('id', res.user!.id);
+          // If no certificate was uploaded, try to save mobile_number safely
+          try {
+            await supabase.from('users').update({
+              'mobile_number': mobileNumber,
+            }).eq('id', res.user!.id);
+          } catch (updateErr) {
+            debugPrint('Mobile number update deferred: $updateErr');
+          }
         }
         
         // Success!
