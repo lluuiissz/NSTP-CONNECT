@@ -31,10 +31,10 @@ export async function POST(req: Request) {
 
     const userId = authData.user.id;
 
-    // 2. Insert into public.users
+    // 2. Insert or update public.users
     const { error: dbError } = await supabaseAdmin
       .from('users')
-      .insert({
+      .upsert({
         id: userId,
         email,
         full_name: fullName,

@@ -127,8 +127,13 @@ class _OTPScreenState extends State<OTPScreen> {
         });
       }
     } catch (e) {
+      final errStr = e.toString();
+      String message = 'Registration failed: $e';
+      if (errStr.contains('Database error saving new user') || errStr.contains('unexpected_failure')) {
+        message = 'Database trigger error: Please execute the SQL migration script in your Supabase SQL Editor to complete setting up the mobile_number column.';
+      }
       setState(() {
-        _errorMsg = 'Registration failed: $e';
+        _errorMsg = message;
       });
     } finally {
       if (mounted) {

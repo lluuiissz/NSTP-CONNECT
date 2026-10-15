@@ -89,7 +89,7 @@ export default function LiveRadarMap() {
   // Full fetch — used once on mount and as a safety net when a delta
   // arrives for a log we don't have (e.g. changed while we were offline).
   const fetchLogs = useCallback(async () => {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('volunteer_logs')
       .select(`
         id,
@@ -108,6 +108,29 @@ export default function LiveRadarMap() {
       `)
       .gte('created_at', startOfToday())
 
+    // If mobile_number column has not been migrated yet, fallback without it
+    if (error && (error.message?.includes('mobile_number') || error.code === '42703')) {
+      const fallback = await supabase
+        .from('volunteer_logs')
+        .select(`
+          id,
+          lat,
+          lng,
+          status,
+          service_hours,
+          created_at,
+          users (
+            full_name,
+            nstp_component,
+            barangay,
+            municipality
+          )
+        `)
+        .gte('created_at', startOfToday())
+      data = fallback.data as typeof data
+      error = fallback.error
+    }
+
     if (!error && data) {
       const rows = (data as unknown as RawLog[]).map((r) => ({
         ...r,
@@ -121,11 +144,23 @@ export default function LiveRadarMap() {
   // Fetch the joined user profile for a single log (used by delta handling,
   // because realtime payloads don't include the users join).
   const fetchUserForLog = useCallback(async (userId: string) => {
-    const { data } = await supabase
+    const { data: initialData, error } = await supabase
       .from('users')
       .select('full_name, mobile_number, nstp_component, barangay, municipality')
       .eq('id', userId)
       .single()
+
+    let data = initialData
+
+    if (error && (error.message?.includes('mobile_number') || error.code === '42703')) {
+      const fallback = await supabase
+        .from('users')
+        .select('full_name, nstp_component, barangay, municipality')
+        .eq('id', userId)
+        .single()
+      data = fallback.data ? { ...fallback.data, mobile_number: null } : null
+    }
+
     return data
   }, [])
 
