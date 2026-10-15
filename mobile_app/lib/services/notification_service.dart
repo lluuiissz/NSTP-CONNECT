@@ -13,41 +13,47 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
-    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings();
-    
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
+    try {
+      if (!kIsWeb) {
+        const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+        const DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings();
+        
+        const InitializationSettings initializationSettings = InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsIOS,
+        );
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    // Request permissions for FCM
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    // Get the FCM token and upload to Supabase
-    String? token = await messaging.getToken();
-    if (token != null) {
-      _uploadFcmToken(token);
-    }
-
-    // Listen for token refreshes
-    messaging.onTokenRefresh.listen((newToken) {
-      _uploadFcmToken(newToken);
-    });
-
-    // Handle foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      if (message.notification != null) {
-        _showNotification(message.notification!.title ?? 'Alert', message.notification!.body ?? '');
+        await flutterLocalNotificationsPlugin.initialize(initializationSettings);
       }
-    });
+
+      // Request permissions for FCM
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      // Get the FCM token and upload to Supabase
+      String? token = await messaging.getToken();
+      if (token != null) {
+        _uploadFcmToken(token);
+      }
+
+      // Listen for token refreshes
+      messaging.onTokenRefresh.listen((newToken) {
+        _uploadFcmToken(newToken);
+      });
+
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if (message.notification != null) {
+          _showNotification(message.notification!.title ?? 'Alert', message.notification!.body ?? '');
+        }
+      });
+    } catch (e) {
+      debugPrint("Notification service initialization notice: $e");
+    }
 
     _listenToSupabase();
   }
@@ -136,22 +142,30 @@ class NotificationService {
   }
 
   Future<void> _showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'nstp_announcements', // id
-      'Announcements', // title
-      channelDescription: 'Important announcements from NSTP and LGU',
-      importance: Importance.max,
-      priority: Priority.high,
-      ticker: 'ticker',
-    );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
-    
-    await flutterLocalNotificationsPlugin.show(
-      DateTime.now().millisecond, // random id
-      title,
-      body,
-      platformChannelSpecifics,
-    );
+    try {
+      if (!kIsWeb) {
+        const AndroidNotificationDetails androidPlatformChannelSpecifics =
+            AndroidNotificationDetails(
+          'nstp_announcements', // id
+          'Announcements', // title
+          channelDescription: 'Important announcements from NSTP and LGU',
+          importance: Importance.max,
+          priority: Priority.high,
+          ticker: 'ticker',
+        );
+        const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
+        
+        await flutterLocalNotificationsPlugin.show(
+          DateTime.now().millisecond, // random id
+          title,
+          body,
+          platformChannelSpecifics,
+        );
+      } else {
+        debugPrint('[Web Announcement] $title: $body');
+      }
+    } catch (e) {
+      debugPrint('Failed to show notification: $e');
+    }
   }
 }

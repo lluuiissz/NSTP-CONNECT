@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/login_screen.dart';
@@ -14,7 +15,22 @@ import 'services/notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await Firebase.initializeApp();
+  try {
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyNSTPConnectWebPlaceholderKey',
+          appId: '1:100000000000:web:nstpconnectweb',
+          messagingSenderId: '100000000000',
+          projectId: 'nstp-connect-63afa',
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+  } catch (e) {
+    debugPrint("Firebase initialization warning: $e");
+  }
   
   // Actual Supabase Initialization
   await Supabase.initialize(

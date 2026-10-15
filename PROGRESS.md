@@ -105,6 +105,11 @@ This file mirrors the AI's internal task tracking so you can monitor progress di
   - [x] Updated `supabase/migration_add_mobile_number.sql` with idempotent `ADD COLUMN IF NOT EXISTS`, `ON CONFLICT DO UPDATE` handling, and immediate `NOTIFY pgrst, 'reload schema'`.
   - [x] Added graceful client-side fallbacks in `profile_screen.dart` and `otp_screen.dart` so user profile edits and OTP registration never crash if database schema sync is in flight.
   - [x] Added resilient query fallback to `LiveRadarMap.tsx` preventing initial load failures when `mobile_number` is pending migration.
-  - [x] Replaced `insert` with `upsert` in admin user creation route to eliminate primary key collision with database triggers.
+- [x] **Phase 18: Web / Chrome Platform Support for Mobile App**
+  - [x] Resolved Firebase Web initialization crash (`FirebaseOptions cannot be null when creating the default app`) when running `flutter run -d chrome`.
+  - [x] Added `kIsWeb` conditional `FirebaseOptions` configuration with non-blocking error handling.
+  - [x] Guarded native Android/iOS `flutterLocalNotificationsPlugin` initialization and local notification display to prevent plugin crashes on browser runtimes.
+  - [x] Maintained real-time Supabase notifications across all platforms (Web, Android, iOS).
+
 
 
