@@ -44,12 +44,20 @@ class _OTPScreenState extends State<OTPScreen> {
       // 1. Verify Custom OTP
       if (_otpController.text.trim() != generatedOtp) {
         setState(() {
-          _errorMsg = 'Invalid verification code.';
+          _errorMsg = 'Invalid verification code. Please check your email.';
         });
         return;
       }
 
-      // 2. Custom OTP matched! Now we actually create the account in Supabase
+      // 2. Extra safeguard: Check password length before calling Supabase
+      if (password.length < 6) {
+        setState(() {
+          _errorMsg = 'Password must be at least 6 characters. Please return to sign up and choose a longer password.';
+        });
+        return;
+      }
+
+      // 3. Custom OTP matched! Now we actually create the account in Supabase
       final res = await supabase.auth.signUp(
         email: email,
         password: password,
@@ -119,18 +127,38 @@ class _OTPScreenState extends State<OTPScreen> {
           }
         }
         
-        // Success!
-        if (mounted) Navigator.pushReplacementNamed(context, '/home');
+        // Success! Remove all back history so user lands squarely in home
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        }
       } else {
         setState(() {
-          _errorMsg = 'Failed to create account.';
+          _errorMsg = 'Failed to create account. Please try again.';
         });
       }
     } catch (e) {
       final errStr = e.toString();
-      String message = 'Registration failed: $e';
-      if (errStr.contains('Database error saving new user') || errStr.contains('unexpected_failure')) {
+      String message;
+      if (e is AuthWeakPasswordException ||
+          errStr.contains('AuthWeakPasswordException') ||
+          errStr.contains('Password should be at least') ||
+          errStr.contains('weak_password')) {
+        message = 'Password is too weak. Supabase requires passwords to be at least 6 characters long. Please go back and choose a stronger password.';
+      } else if (errStr.contains('User already registered') ||
+          errStr.contains('already been registered') ||
+          errStr.contains('user_already_exists')) {
+        message = 'This email is already registered. Please return to the login screen to sign in.';
+      } else if (errStr.contains('Database error saving new user') ||
+          errStr.contains('unexpected_failure')) {
         message = 'Database trigger error: Please execute the SQL migration script in your Supabase SQL Editor to complete setting up the mobile_number column.';
+      } else if (errStr.contains('SocketException') ||
+          errStr.contains('Network') ||
+          errStr.contains('Failed host lookup')) {
+        message = 'Network error. Please check your internet connection and try again.';
+      } else if (e is AuthException) {
+        message = e.message;
+      } else {
+        message = 'Registration failed: ${errStr.replaceAll(RegExp(r'^[A-Za-z0-9_]+Exception:?\s*'), '')}';
       }
       setState(() {
         _errorMsg = message;
@@ -153,6 +181,17 @@ class _OTPScreenState extends State<OTPScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to Sign Up',
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacementNamed(context, '/login');
+            }
+          },
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -202,16 +241,48 @@ class _OTPScreenState extends State<OTPScreen> {
               if (_errorMsg.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.red.shade200),
                   ),
-                  child: Text(
-                    _errorMsg,
-                    style: TextStyle(color: Colors.red.shade700, fontSize: 14),
-                    textAlign: TextAlign.center,
+                  child: Column(
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMsg,
+                              style: TextStyle(color: Colors.red.shade700, fontSize: 14, height: 1.4),
+                              textAlign: TextAlign.left,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            } else {
+                              Navigator.pushReplacementNamed(context, '/login');
+                            }
+                          },
+                          icon: const Icon(Icons.arrow_back, size: 16),
+                          label: const Text('Back to Sign Up'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red.shade800,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

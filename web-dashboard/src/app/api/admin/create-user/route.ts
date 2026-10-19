@@ -14,6 +14,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'Password must be at least 6 characters long' }, { status: 400 });
+    }
+
     if (role !== 'admin' && role !== 'nstp') {
       return NextResponse.json({ error: 'Invalid role for dashboard users' }, { status: 400 });
     }

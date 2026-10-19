@@ -72,27 +72,23 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       if (_isSignUp) {
         // Sign Up with Custom OTP
+        final fullName = _fullNameController.text.trim();
+        final mobileNumber = _mobileNumberController.text.trim();
         final email = _emailController.text.trim();
         final password = _passwordController.text;
         final confirmPassword = _confirmPasswordController.text;
 
-        if (password != confirmPassword) {
-          setState(() {
-            _errorMsg = 'Passwords do not match.';
-            _isLoading = false;
-          });
-          return;
-        }
-
-        // Validate required profile fields before sending the OTP email
-        if (_fullNameController.text.trim().isEmpty) {
+        // 1. Validate Full Name
+        if (fullName.isEmpty) {
           setState(() {
             _errorMsg = 'Please enter your full name.';
             _isLoading = false;
           });
           return;
         }
-        if (_mobileNumberController.text.trim().isEmpty) {
+
+        // 2. Validate Mobile Number
+        if (mobileNumber.isEmpty) {
           setState(() {
             _errorMsg = 'Please enter your mobile number.';
             _isLoading = false;
@@ -100,7 +96,6 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         }
 
-        final mobileNumber = _mobileNumberController.text.trim();
         final mobileRegex = RegExp(r'^(09|\+639)\d{9}$');
         if (!mobileRegex.hasMatch(mobileNumber)) {
           setState(() {
@@ -109,9 +104,54 @@ class _LoginScreenState extends State<LoginScreen> {
           });
           return;
         }
+
+        // 3. Validate Location
         if (_selectedMunicipality == null || _selectedBarangay == null) {
           setState(() {
             _errorMsg = 'Please select your municipality and barangay.';
+            _isLoading = false;
+          });
+          return;
+        }
+
+        // 4. Validate Email
+        if (email.isEmpty) {
+          setState(() {
+            _errorMsg = 'Please enter your email address.';
+            _isLoading = false;
+          });
+          return;
+        }
+
+        final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+        if (!emailRegex.hasMatch(email)) {
+          setState(() {
+            _errorMsg = 'Please enter a valid email address.';
+            _isLoading = false;
+          });
+          return;
+        }
+
+        // 5. Validate Password (Supabase requires at least 6 characters)
+        if (password.isEmpty) {
+          setState(() {
+            _errorMsg = 'Please enter a password.';
+            _isLoading = false;
+          });
+          return;
+        }
+
+        if (password.length < 6) {
+          setState(() {
+            _errorMsg = 'Password must be at least 6 characters long.';
+            _isLoading = false;
+          });
+          return;
+        }
+
+        if (password != confirmPassword) {
+          setState(() {
+            _errorMsg = 'Passwords do not match.';
             _isLoading = false;
           });
           return;
@@ -135,13 +175,13 @@ class _LoginScreenState extends State<LoginScreen> {
         if (response.statusCode == 200) {
           // 3. Navigate to OTPScreen with all pending user details
           if (mounted) {
-            Navigator.pushReplacementNamed(
+            Navigator.pushNamed(
               context,
               '/otp',
               arguments: {
                 'email': email,
                 'password': password,
-                'fullName': _fullNameController.text.trim(),
+                'fullName': fullName,
                 'nstpComponent': _selectedComponent,
                 'municipality': _selectedMunicipality ?? '',
                 'barangay': _selectedBarangay ?? '',
@@ -159,9 +199,20 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         // Login
+        final email = _emailController.text.trim();
+        final password = _passwordController.text;
+
+        if (email.isEmpty || password.isEmpty) {
+          setState(() {
+            _errorMsg = 'Please enter both email and password.';
+            _isLoading = false;
+          });
+          return;
+        }
+
         final res = await supabase.auth.signInWithPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
+          email: email,
+          password: password,
         );
         if (res.user != null) {
           if (mounted) Navigator.pushReplacementNamed(context, '/home');
@@ -170,10 +221,13 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       // Immediate System Feedback (Human Friendly)
       setState(() {
-        if (e.toString().contains('Invalid login credentials')) {
+        final errStr = e.toString();
+        if (errStr.contains('Invalid login credentials')) {
           _errorMsg = 'Wrong email or password. Please try again.';
+        } else if (errStr.contains('SocketException') || errStr.contains('Network') || errStr.contains('Failed host lookup')) {
+          _errorMsg = 'Network error. Please check your internet connection.';
         } else {
-          _errorMsg = 'Something went wrong. Please check your connection.';
+          _errorMsg = 'Authentication failed: ${errStr.replaceAll(RegExp(r'^[A-Za-z0-9_]+Exception:?\s*'), '')}';
         }
       });
     } finally {
@@ -330,6 +384,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   labelText: 'Password',
+                  helperText: _isSignUp ? 'At least 6 characters' : null,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16)),
                   prefixIcon: const Icon(Icons.lock_outline),
@@ -351,6 +406,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
+                    helperText: 'Must match password above',
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16)),
                     prefixIcon: const Icon(Icons.lock_outline),
