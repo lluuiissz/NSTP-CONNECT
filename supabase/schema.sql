@@ -63,7 +63,24 @@ CREATE TABLE public.notifications (
     title TEXT NOT NULL,
     message TEXT NOT NULL,
     target_municipality TEXT, -- If null, it's a global broadcast
+    target_barangay TEXT,     -- Specific barangay if applicable
+    assembly_point TEXT,      -- Location/landmark where volunteers should report
+    requires_attendance BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Broadcast Attendances Table (Emergency Mustering & Attendance Statistics)
+CREATE TABLE public.broadcast_attendances (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    broadcast_id UUID REFERENCES public.notifications(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    nstp_component TEXT NOT NULL, -- 'CWTS', 'ROTC', or 'LTS'
+    lat DOUBLE PRECISION,
+    lng DOUBLE PRECISION,
+    municipality TEXT,
+    barangay TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(broadcast_id, user_id)
 );
 
 
