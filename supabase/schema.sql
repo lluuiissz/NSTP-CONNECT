@@ -132,16 +132,40 @@ BEGIN
         new.id, 
         COALESCE(new.raw_user_meta_data->>'full_name', new.email), 
         new.email, 
-        'volunteer',  -- SECURITY: never trust client-supplied role metadata; promote via service-role API only
+        'volunteer',
         new.raw_user_meta_data->>'nstp_component',
         new.raw_user_meta_data->>'municipality',
         new.raw_user_meta_data->>'barangay',
         new.raw_user_meta_data->>'mobile_number'
-    );
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        full_name = EXCLUDED.full_name,
+        nstp_component = COALESCE(EXCLUDED.nstp_component, public.users.nstp_component),
+        municipality = COALESCE(EXCLUDED.municipality, public.users.municipality),
+        barangay = COALESCE(EXCLUDED.barangay, public.users.barangay),
+        mobile_number = COALESCE(EXCLUDED.mobile_number, public.users.mobile_number);
     RETURN new;
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Fallback: If any column issue occurs, still insert basic user so signup never crashes!
+        BEGIN
+            INSERT INTO public.users (id, full_name, email, role)
+            VALUES (
+                new.id,
+                COALESCE(new.raw_user_meta_data->>'full_name', new.email),
+                new.email,
+                'volunteer'
+            )
+            ON CONFLICT (id) DO NOTHING;
+        EXCEPTION
+            WHEN OTHERS THEN
+                NULL; -- Never block auth signup!
+        END;
+        RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
