@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../main.dart'; // for supabase instance
@@ -149,8 +150,9 @@ class _OTPScreenState extends State<OTPScreen> {
           errStr.contains('user_already_exists')) {
         message = 'This email is already registered. Please return to the login screen to sign in.';
       } else if (errStr.contains('Database error saving new user') ||
-          errStr.contains('unexpected_failure')) {
-        message = 'Database trigger error: Please execute the SQL migration script in your Supabase SQL Editor to complete setting up the mobile_number column.';
+          errStr.contains('unexpected_failure') ||
+          (e is AuthException && e.message.contains('Database error saving new user'))) {
+        message = 'Database trigger error: The "mobile_number" column is missing in your Supabase "users" table. Please execute the SQL migration script in your Supabase SQL Editor.';
       } else if (errStr.contains('SocketException') ||
           errStr.contains('Network') ||
           errStr.contains('Failed host lookup')) {
@@ -263,24 +265,48 @@ class _OTPScreenState extends State<OTPScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed: () {
-                            if (Navigator.canPop(context)) {
-                              Navigator.pop(context);
-                            } else {
-                              Navigator.pushReplacementNamed(context, '/login');
-                            }
-                          },
-                          icon: const Icon(Icons.arrow_back, size: 16),
-                          label: const Text('Back to Sign Up'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red.shade800,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (_errorMsg.contains('mobile_number') || _errorMsg.contains('Database trigger')) ...[
+                            TextButton.icon(
+                              onPressed: () {
+                                Clipboard.setData(const ClipboardData(
+                                  text: 'ALTER TABLE public.users ADD COLUMN IF NOT EXISTS mobile_number TEXT;\nNOTIFY pgrst, \'reload schema\';',
+                                ));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Copied SQL to clipboard! Paste into Supabase SQL Editor.'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.copy, size: 16),
+                              label: const Text('Copy Fix SQL'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF2563EB),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          TextButton.icon(
+                            onPressed: () {
+                              if (Navigator.canPop(context)) {
+                                Navigator.pop(context);
+                              } else {
+                                Navigator.pushReplacementNamed(context, '/login');
+                              }
+                            },
+                            icon: const Icon(Icons.arrow_back, size: 16),
+                            label: const Text('Back to Sign Up'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red.shade800,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),

@@ -30,6 +30,11 @@ export async function POST(req: Request) {
     });
 
     if (authError) {
+      if (authError.message?.includes('Database error saving new user')) {
+        return NextResponse.json({ 
+          error: 'Database trigger error: The "mobile_number" column has not been added to public.users yet. Please run migration_add_mobile_number.sql in your Supabase SQL Editor.' 
+        }, { status: 500 });
+      }
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
