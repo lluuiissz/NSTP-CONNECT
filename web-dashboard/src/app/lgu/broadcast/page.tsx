@@ -75,14 +75,15 @@ export default function BroadcastPage() {
   const [recentBroadcasts, setRecentBroadcasts] = useState<BroadcastItem[]>([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [recipientCount, setRecipientCount] = useState<number | null>(null);
+  const [recipientStats, setRecipientStats] = useState<{ total: number; pushEnabled: number } | null>(null);
 
   // Modal for Viewing Attendee Roster
-  const [selectedBroadcast, setSelectedBroadcast] = useState<BroadcastItem | null>(null);
+  const [selectedBroadcastId, setSelectedBroadcastId] = useState<string | null>(null);
   const [rosterFilter, setRosterFilter] = useState<'ALL' | 'ROTC' | 'CWTS' | 'LTS'>('ALL');
   const [searchRoster, setSearchRoster] = useState('');
 
   const trimmedTarget = targetMunicipality.trim();
+  const selectedBroadcast = recentBroadcasts.find((b) => b.id === selectedBroadcastId) || null;
 
   // Calculate statistics for a broadcast
   const computeStats = (attendances: BroadcastAttendance[]) => {
@@ -92,7 +93,7 @@ export default function BroadcastPage() {
     let lts = 0;
 
     for (const a of attendances) {
-      const comp = (a.nstp_component || '').toUpperCase();
+      const comp = (a.nstp_component || '').trim().toUpperCase();
       if (comp === 'CWTS') cwts++;
       else if (comp === 'ROTC') rotc++;
       else if (comp === 'LTS') lts++;
@@ -155,26 +156,29 @@ export default function BroadcastPage() {
       });
 
       setRecentBroadcasts(enrichedBroadcasts);
-
-      // If a modal is open, refresh its data too
-      if (selectedBroadcast) {
-        const refreshed = enrichedBroadcasts.find((b) => b.id === selectedBroadcast.id);
-        if (refreshed) setSelectedBroadcast(refreshed);
-      }
     } catch (err) {
       console.error('Failed to fetch recent broadcasts', err);
     } finally {
       setIsLoadingRecent(false);
     }
-  }, [selectedBroadcast]);
+  }, []);
 
-  // Real-time listener for live check-in updates
+  // Real-time listener for live check-in updates and notifications
   useEffect(() => {
+    fetchRecentBroadcasts();
+
     const channel = supabase
-      .channel('broadcast_attendances_realtime')
+      .channel('broadcast_live_monitor')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'broadcast_attendances' },
+        () => {
+          fetchRecentBroadcasts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
         () => {
           fetchRecentBroadcasts();
         }
@@ -193,7 +197,7 @@ export default function BroadcastPage() {
       const { error } = await supabase.from('notifications').delete().eq('id', id);
       if (error) throw error;
       setRecentBroadcasts((prev) => prev.filter((b) => b.id !== id));
-      if (selectedBroadcast?.id === id) setSelectedBroadcast(null);
+      if (selectedBroadcastId === id) setSelectedBroadcastId(null);
     } catch (err) {
       alert(`Failed to delete: ${(err as Error).message}`);
     } finally {
@@ -289,10 +293,9 @@ export default function BroadcastPage() {
     const countRecipients = async () => {
       let query = supabase
         .from('users')
-        .select('*', { count: 'exact', head: true })
+        .select('fcm_token', { count: 'exact' })
         .neq('role', 'admin')
-        .neq('role', 'nstp')
-        .not('fcm_token', 'is', null);
+        .neq('role', 'nstp');
 
       if (trimmedTarget !== '') {
         query = query.ilike('municipality', trimmedTarget);
@@ -301,8 +304,12 @@ export default function BroadcastPage() {
         query = query.ilike('barangay', targetBarangay.trim());
       }
 
-      const { count, error } = await query;
-      if (!cancelled && !error) setRecipientCount(count ?? 0);
+      const { data, count, error } = await query;
+      if (!cancelled && !error) {
+        const total = count ?? 0;
+        const pushEnabled = (data || []).filter((u) => !!u.fcm_token).length;
+        setRecipientStats({ total, pushEnabled });
+      }
     };
 
     const t = setTimeout(countRecipients, 300);
@@ -311,11 +318,6 @@ export default function BroadcastPage() {
       clearTimeout(t);
     };
   }, [trimmedTarget, targetBarangay]);
-
-  useEffect(() => {
-    const t = setTimeout(fetchRecentBroadcasts, 0);
-    return () => clearTimeout(t);
-  }, [fetchRecentBroadcasts]);
 
   // Export Roster to CSV
   const handleExportCSV = (broadcast: BroadcastItem) => {
@@ -329,23 +331,25 @@ export default function BroadcastPage() {
     const rows = atts.map((a) => {
       const u = Array.isArray(a.users) ? a.users[0] : a.users;
       return [
-        `"${u?.full_name || 'Volunteer'}"`,
-        `"${a.nstp_component || 'N/A'}"`,
-        `"${u?.mobile_number || 'N/A'}"`,
-        `"${a.municipality || u?.municipality || ''}"`,
-        `"${a.barangay || u?.barangay || ''}"`,
-        `"${new Date(a.created_at).toLocaleString()}"`,
+        `"${(u?.full_name || 'Volunteer').replace(/"/g, '""')}"`,
+        `"${(a.nstp_component || 'N/A').replace(/"/g, '""')}"`,
+        `"${(u?.mobile_number || 'N/A').replace(/"/g, '""')}"`,
+        `"${(a.municipality || u?.municipality || '').replace(/"/g, '""')}"`,
+        `"${(a.barangay || u?.barangay || '').replace(/"/g, '""')}"`,
+        `"${new Date(a.created_at).toLocaleString().replace(/"/g, '""')}"`,
       ];
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `broadcast_${broadcast.id.slice(0, 8)}_attendance.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -468,9 +472,9 @@ export default function BroadcastPage() {
 
           <div className="text-xs text-gray-500 flex items-center">
             <Users className="w-4 h-4 mr-1.5 text-slate-500" />
-            {recipientCount === null
+            {recipientStats === null
               ? 'Auditing volunteer audience...'
-              : `This broadcast will immediately reach ${recipientCount} volunteer${recipientCount === 1 ? '' : 's'}${trimmedTarget ? ` in ${trimmedTarget}` : ''}${targetBarangay ? ` (${targetBarangay})` : ''}.`}
+              : `Reaches ${recipientStats.total} registered volunteer${recipientStats.total === 1 ? '' : 's'}${trimmedTarget ? ` in ${trimmedTarget}` : ''}${targetBarangay ? ` (${targetBarangay})` : ''} (${recipientStats.pushEnabled} with active push notification token).`}
           </div>
 
           {statusMsg.text && (
@@ -562,7 +566,7 @@ export default function BroadcastPage() {
                       {hasAttendance && (
                         <button
                           onClick={() => {
-                            setSelectedBroadcast(b);
+                            setSelectedBroadcastId(b.id);
                             setRosterFilter('ALL');
                             setSearchRoster('');
                           }}
@@ -705,7 +709,7 @@ export default function BroadcastPage() {
                 </p>
               </div>
               <button
-                onClick={() => setSelectedBroadcast(null)}
+                onClick={() => setSelectedBroadcastId(null)}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -845,7 +849,7 @@ export default function BroadcastPage() {
             <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
               <span>GPS check-in verified by mobile device coordinates.</span>
               <button
-                onClick={() => setSelectedBroadcast(null)}
+                onClick={() => setSelectedBroadcastId(null)}
                 className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-semibold transition-colors"
               >
                 Close Roster

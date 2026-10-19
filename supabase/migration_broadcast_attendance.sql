@@ -42,6 +42,15 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
+    CREATE POLICY "Volunteers can update their own broadcast attendance" 
+        ON public.broadcast_attendances FOR UPDATE 
+        USING (auth.uid() = user_id) 
+        WITH CHECK (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
     CREATE POLICY "Admins can delete broadcast attendances" 
         ON public.broadcast_attendances FOR DELETE USING (
             EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role IN ('admin', 'nstp'))

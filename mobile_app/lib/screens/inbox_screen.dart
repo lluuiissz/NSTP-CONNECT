@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart'; // supabase instance
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
@@ -20,11 +21,38 @@ class _InboxScreenState extends State<InboxScreen> {
   // Map of broadcast_id -> attendance record
   Map<String, Map<String, dynamic>> _myAttendances = {};
   final Set<String> _checkingInIds = {};
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _fetchInbox();
+    _setupRealtime();
+  }
+
+  void _setupRealtime() {
+    _realtimeChannel = supabase.channel('mobile_inbox_feed')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'notifications',
+        callback: (payload) => _fetchInbox(),
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'broadcast_attendances',
+        callback: (payload) => _fetchInbox(),
+      )
+      ..subscribe();
+  }
+
+  @override
+  void dispose() {
+    if (_realtimeChannel != null) {
+      supabase.removeChannel(_realtimeChannel!);
+    }
+    super.dispose();
   }
 
   Future<void> _fetchInbox() async {
@@ -216,16 +244,19 @@ class _InboxScreenState extends State<InboxScreen> {
       double? lat;
       double? lng;
       try {
-        LocationPermission permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-        }
-        if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-          final position = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
-          ).timeout(const Duration(seconds: 8));
-          lat = position.latitude;
-          lng = position.longitude;
+        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+            final position = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+            ).timeout(const Duration(seconds: 7));
+            lat = position.latitude;
+            lng = position.longitude;
+          }
         }
       } catch (locErr) {
         debugPrint("GPS location read (non-fatal warning): $locErr");
@@ -282,7 +313,7 @@ class _InboxScreenState extends State<InboxScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to confirm attendance: $e'),
+            content: const Text('Could not confirm attendance. Please check your network connection and try again.'),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -324,25 +355,34 @@ class _InboxScreenState extends State<InboxScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _notifications.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.inbox, size: 80, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No messages yet.', 
-                        style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold)),
-                      SizedBox(height: 8),
-                      Text('Emergency broadcasts will appear here.', 
-                        style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _notifications.length,
-                  itemBuilder: (context, index) {
+          : RefreshIndicator(
+              onRefresh: _fetchInbox,
+              child: _notifications.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                        const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inbox_outlined, size: 80, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text('No messages yet.', 
+                                style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold)),
+                              SizedBox(height: 8),
+                              Text('Emergency broadcasts will appear here automatically.', 
+                                style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _notifications.length,
+                      itemBuilder: (context, index) {
                     final notif = _notifications[index];
                     final broadcastId = notif['id']?.toString() ?? '';
                     final dateStr = notif['created_at'] != null 
@@ -649,6 +689,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     );
                   },
                 ),
+              ),
     );
   }
 }
