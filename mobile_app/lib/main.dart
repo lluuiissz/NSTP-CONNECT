@@ -41,18 +41,13 @@ void main() async {
   // Initialize Notifications
   await NotificationService().init();
 
-  // Check if there is an active session so users aren't bounced back to login on app exit
-  final session = Supabase.instance.client.auth.currentSession;
-  final initialRoute = session != null ? '/home' : '/welcome';
-
-  runApp(MyApp(initialRoute: initialRoute));
+  runApp(const MyApp());
 }
 
 final supabase = Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
-  final String initialRoute;
-  const MyApp({super.key, this.initialRoute = '/welcome'});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -69,13 +64,48 @@ class MyApp extends StatelessWidget {
         // Aesthetic Minimalism: Clean typography
         fontFamily: 'Roboto', // Default flutter font, but clean
       ),
-      initialRoute: initialRoute,
+      home: const AuthGate(),
       routes: {
         '/welcome': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
         '/otp': (context) => const OTPScreen(),
         '/home': (context) => const MainNavigation(),
         '/activity_detail': (context) => const ActivityDetailScreen(),
+      },
+    );
+  }
+}
+
+/// Reactive AuthGate: Listens to Supabase Auth state changes in real-time.
+/// Automatically restores sessions from disk when the app is restarted or turned off,
+/// and handles token refreshing in the background so users never get logged out.
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthState>(
+      stream: supabase.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final session = snapshot.hasData
+            ? snapshot.data!.session
+            : supabase.auth.currentSession;
+
+        if (session != null) {
+          return const MainNavigation();
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            supabase.auth.currentSession == null) {
+          return const Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+            ),
+          );
+        }
+
+        return const WelcomeScreen();
       },
     );
   }

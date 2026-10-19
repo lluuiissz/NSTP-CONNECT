@@ -47,7 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _handleLogout() async {
     await supabase.auth.signOut();
     if (mounted) {
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
   }
 
