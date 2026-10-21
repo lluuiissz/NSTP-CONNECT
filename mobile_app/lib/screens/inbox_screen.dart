@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../utils/locations.dart';
 import '../main.dart'; // supabase instance
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
@@ -21,13 +25,48 @@ class _InboxScreenState extends State<InboxScreen> {
   // Map of broadcast_id -> attendance record
   Map<String, Map<String, dynamic>> _myAttendances = {};
   final Set<String> _checkingInIds = {};
+  final Set<String> _showMapBroadcastIds = {};
+  Position? _currentGps;
   RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _fetchInbox();
+    _fetchUserGps();
     _setupRealtime();
+  }
+
+  Future<void> _fetchUserGps() async {
+    try {
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+        ).timeout(const Duration(seconds: 6));
+        if (mounted) {
+          setState(() => _currentGps = pos);
+        }
+      }
+    } catch (e) {
+      debugPrint("Pre-fetch GPS note: $e");
+    }
+  }
+
+  Future<void> _openDirections(double lat, double lng, String label) async {
+    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint("Directions launcher error: $e");
+    }
   }
 
   void _setupRealtime() {
@@ -466,56 +505,239 @@ class _InboxScreenState extends State<InboxScreen> {
                               style: const TextStyle(color: Colors.black87, height: 1.4, fontSize: 14),
                             ),
 
-                            // Assembly Point & Target Location Banner
-                            if (assemblyPoint != null || targetBarangay != null) ...[
+                            // Incident Target & Assembly Point Area
+                            if (assemblyPoint != null || targetBarangay != null || requiresAttendance) ...[
                               const SizedBox(height: 14),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.orange.shade200),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (assemblyPoint != null && assemblyPoint.toString().trim().isNotEmpty)
-                                      Row(
-                                        children: [
-                                          Icon(Icons.meeting_room, size: 16, color: Colors.orange.shade900),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: Text(
-                                              'Assembly Point: $assemblyPoint',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.orange.shade900,
+                              Builder(
+                                builder: (context) {
+                                  final targetCoords = getBroadcastCoordinates(
+                                    municipality: notif['target_municipality'] ?? _userMunicipality,
+                                    lat: (notif['lat'] as num?)?.toDouble(),
+                                    lng: (notif['lng'] as num?)?.toDouble(),
+                                  );
+
+                                  String? distanceText;
+                                  if (_currentGps != null) {
+                                    final d = Geolocator.distanceBetween(
+                                      _currentGps!.latitude,
+                                      _currentGps!.longitude,
+                                      targetCoords.latitude,
+                                      targetCoords.longitude,
+                                    );
+                                    distanceText = '${(d / 1000).toStringAsFixed(1)} km away';
+                                  }
+
+                                  final isMapOpen = _showMapBroadcastIds.contains(broadcastId) || (requiresAttendance && !isAttended);
+
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade50,
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: Colors.orange.shade200),
+                                    ),
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Location Text details
+                                        if (assemblyPoint != null && assemblyPoint.toString().trim().isNotEmpty)
+                                          Row(
+                                            children: [
+                                              Icon(Icons.meeting_room, size: 16, color: Colors.orange.shade900),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  'Assembly Point: $assemblyPoint',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.orange.shade900,
+                                                  ),
+                                                ),
                                               ),
+                                            ],
+                                          ),
+                                        if (targetBarangay != null && targetBarangay.toString().trim().isNotEmpty) ...[
+                                          if (assemblyPoint != null) const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              Icon(Icons.location_on, size: 16, color: Colors.orange.shade800),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  'Target Barangay: $targetBarangay (${notif['target_municipality'] ?? 'Agusan del Sur'})',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.orange.shade900,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+
+                                        const SizedBox(height: 8),
+
+                                        // Map Header Bar with Distance & Toggle Button
+                                        Row(
+                                          children: [
+                                            if (distanceText != null)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(color: Colors.orange.shade300),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.navigation, size: 11, color: Colors.orange.shade900),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      distanceText,
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.orange.shade900,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            const Spacer(),
+                                            // Navigation Button
+                                            InkWell(
+                                              onTap: () => _openDirections(
+                                                targetCoords.latitude,
+                                                targetCoords.longitude,
+                                                assemblyPoint ?? targetBarangay ?? 'Assembly Point',
+                                              ),
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF1E3A8A),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: const Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.directions, size: 13, color: Colors.white),
+                                                    SizedBox(width: 4),
+                                                    Text(
+                                                      'Directions',
+                                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // Toggle Map View Button
+                                            InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  if (_showMapBroadcastIds.contains(broadcastId)) {
+                                                    _showMapBroadcastIds.remove(broadcastId);
+                                                  } else {
+                                                    _showMapBroadcastIds.add(broadcastId);
+                                                  }
+                                                });
+                                              },
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: Colors.grey.shade300),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      isMapOpen ? Icons.map : Icons.map_outlined,
+                                                      size: 13,
+                                                      color: Colors.grey.shade800,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      isMapOpen ? 'Hide Map' : 'Track Map',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Colors.grey.shade800,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+
+                                        // Interactive Map
+                                        if (isMapOpen) ...[
+                                          const SizedBox(height: 10),
+                                          Container(
+                                            height: 180,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: Colors.orange.shade300),
+                                            ),
+                                            clipBehavior: Clip.antiAlias,
+                                            child: FlutterMap(
+                                              options: MapOptions(
+                                                initialCenter: targetCoords,
+                                                initialZoom: 13.5,
+                                              ),
+                                              children: [
+                                                TileLayer(
+                                                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                                  userAgentPackageName: 'com.nstpconnect.mobile_app',
+                                                ),
+                                                MarkerLayer(
+                                                  markers: [
+                                                    // Incident / Assembly Area Marker
+                                                    Marker(
+                                                      point: targetCoords,
+                                                      width: 48,
+                                                      height: 48,
+                                                      child: const Icon(
+                                                        Icons.location_on,
+                                                        color: Colors.red,
+                                                        size: 44,
+                                                      ),
+                                                    ),
+                                                    // Volunteer Live GPS Marker
+                                                    if (_currentGps != null)
+                                                      Marker(
+                                                        point: LatLng(_currentGps!.latitude, _currentGps!.longitude),
+                                                        width: 32,
+                                                        height: 32,
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.blue.shade600,
+                                                            shape: BoxShape.circle,
+                                                            border: Border.all(color: Colors.white, width: 2.5),
+                                                            boxShadow: const [
+                                                              BoxShadow(color: Colors.black26, blurRadius: 4),
+                                                            ],
+                                                          ),
+                                                          child: const Icon(Icons.person, color: Colors.white, size: 18),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],
-                                      ),
-                                    if (targetBarangay != null && targetBarangay.toString().trim().isNotEmpty) ...[
-                                      if (assemblyPoint != null) const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.location_on, size: 16, color: Colors.orange.shade800),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: Text(
-                                              'Target Barangay: $targetBarangay',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.orange.shade900,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
                             ],
 

@@ -121,13 +121,89 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
+  int _unattendedAlertsCount = 0;
+  RealtimeChannel? _navChannel;
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomeScreen(),
-    InboxScreen(), // Inbox tab
-    ProfileScreen(),
-    MyLogScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchUnattendedCount();
+    _setupNavRealtime();
+  }
+
+  @override
+  void dispose() {
+    if (_navChannel != null) {
+      supabase.removeChannel(_navChannel!);
+    }
+    super.dispose();
+  }
+
+  Future<void> _fetchUnattendedCount() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+
+      final userData = await supabase
+          .from('users')
+          .select('municipality')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final mun = userData?['municipality'] as String?;
+      final String orFilter;
+      if (mun != null && mun.trim().isNotEmpty) {
+        orFilter = 'target_municipality.is.null,target_municipality.ilike."${mun.trim()}"';
+      } else {
+        orFilter = 'target_municipality.is.null';
+      }
+
+      // Fetch active broadcasts requiring attendance
+      final broadcasts = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('requires_attendance', true)
+          .or(orFilter);
+
+      final bIds = (broadcasts as List).map((b) => b['id'].toString()).toSet();
+      if (bIds.isEmpty) {
+        if (mounted) setState(() => _unattendedAlertsCount = 0);
+        return;
+      }
+
+      // Fetch user's attendances
+      final attendances = await supabase
+          .from('broadcast_attendances')
+          .select('broadcast_id')
+          .eq('user_id', user.id);
+
+      final attendedIds = (attendances as List).map((a) => a['broadcast_id'].toString()).toSet();
+      final unattended = bIds.difference(attendedIds).length;
+
+      if (mounted) {
+        setState(() => _unattendedAlertsCount = unattended);
+      }
+    } catch (e) {
+      debugPrint("Error fetching nav badge count: $e");
+    }
+  }
+
+  void _setupNavRealtime() {
+    _navChannel = supabase.channel('nav_alerts_channel')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'notifications',
+        callback: (_) => _fetchUnattendedCount(),
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'broadcast_attendances',
+        callback: (_) => _fetchUnattendedCount(),
+      )
+      ..subscribe();
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -137,26 +213,38 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> pages = [
+      HomeScreen(onOpenInbox: () => _onItemTapped(1)),
+      const InboxScreen(),
+      const ProfileScreen(),
+      const MyLogScreen(),
+    ];
+
     return Scaffold(
       body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
+        child: pages.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
+        items: <BottomNavigationBarItem>[
+          const BottomNavigationBarItem(
             icon: Icon(Icons.explore),
             label: 'Discover',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.inbox),
+            icon: Badge(
+              label: Text('$_unattendedAlertsCount'),
+              isLabelVisible: _unattendedAlertsCount > 0,
+              backgroundColor: Colors.red,
+              child: const Icon(Icons.inbox),
+            ),
             label: 'Inbox',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Profile',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.history),
             label: 'My Log',
           ),

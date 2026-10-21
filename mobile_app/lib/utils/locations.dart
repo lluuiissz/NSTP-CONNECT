@@ -1,3 +1,5 @@
+import 'package:latlong2/latlong.dart';
+
 // ignore: constant_identifier_names
 const Map<String, List<String>> AGUSAN_DEL_SUR_LOCATIONS = {
   'Bayugan City': ['Berseba', 'Bucac', 'Cagbas', 'Calaitan', 'Canayugan', 'Charito', 'Claro M. Recto', 'Del Carmen', 'Fili', 'Gamao', 'Getsemane', 'Grace Estate', 'Hamogaway', 'Ilaud', 'Magkiangkang', 'Mahayag', 'Mabuhay', 'Macopa', 'Magugpo', 'Maygatasan', 'Montevista', 'Mt. Ararat', 'Mt. Carmel', 'Mt. Olive', 'New Salem', 'Noli', 'Osmeña', 'Panaytay', 'Pinagalaan', 'Poblacion', 'Sagmone', 'Salvacion', 'San Agustin', 'San Isidro', 'San Juan', 'San Lorenzo', 'San Mateo', 'Santa Irene', 'Santa Teresita', 'Taglatawan', 'Tagubay', 'Verdu', 'Villa Undayon', 'Wawa'],
@@ -15,3 +17,40 @@ const Map<String, List<String>> AGUSAN_DEL_SUR_LOCATIONS = {
   'Trento': ['Basa', 'Cuevas', 'Kapatungan', 'Langkila-an', 'Manat', 'New Visayas', 'Pangyan', 'Poblacion', 'Pulang-lupa', 'Salvacion', 'San Ignacio', 'San Isidro', 'San Roque', 'Santa Maria', 'Tudela', 'Cebolin'],
   'Veruela': ['Anitap', 'Bacay II', 'Binongan', 'Del Monte', 'Don Mateo', 'Katipunan', 'La Fortuna', 'Limot', 'Magsaysay', 'Masayan', 'Poblacion', 'Sampaguita', 'San Gabriel', 'Santa Cruz', 'Santa Emilia', 'Sinobong']
 };
+
+// Geographic Coordinates for Municipal Halls / Command Centers
+// ignore: constant_identifier_names
+const Map<String, LatLng> AGUSAN_DEL_SUR_COORDINATES = {
+  'Bayugan City': LatLng(8.7139, 125.7481),
+  'Bunawan': LatLng(8.3090, 125.9926),
+  'Esperanza': LatLng(8.6781, 125.6508),
+  'La Paz': LatLng(8.2817, 125.8053),
+  'Loreto': LatLng(8.1889, 125.8522),
+  'Prosperidad': LatLng(8.6019, 125.9189),
+  'Rosario': LatLng(8.3619, 126.0125),
+  'San Francisco': LatLng(8.5083, 125.9789),
+  'San Luis': LatLng(8.5447, 125.7428),
+  'Santa Josefa': LatLng(7.9867, 126.0306),
+  'Sibagat': LatLng(8.8239, 125.6983),
+  'Talacogon': LatLng(8.4497, 125.7892),
+  'Trento': LatLng(8.0492, 126.0622),
+  'Veruela': LatLng(8.0722, 125.9556),
+};
+
+// ignore: constant_identifier_names
+const LatLng AGUSAN_DEL_SUR_CENTER = LatLng(8.5069, 125.7446);
+
+LatLng getBroadcastCoordinates({
+  String? municipality,
+  double? lat,
+  double? lng,
+}) {
+  if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+    return LatLng(lat, lng);
+  }
+  if (municipality != null && AGUSAN_DEL_SUR_COORDINATES.containsKey(municipality)) {
+    return AGUSAN_DEL_SUR_COORDINATES[municipality]!;
+  }
+  return AGUSAN_DEL_SUR_CENTER;
+}
+

@@ -14,3 +14,21 @@ export const AGUSAN_DEL_SUR_LOCATIONS: Record<string, string[]> = {
   'Trento': ['Basa', 'Cuevas', 'Kapatungan', 'Langkila-an', 'Manat', 'New Visayas', 'Pangyan', 'Poblacion', 'Pulang-lupa', 'Salvacion', 'San Ignacio', 'San Isidro', 'San Roque', 'Santa Maria', 'Tudela', 'Cebolin'],
   'Veruela': ['Anitap', 'Bacay II', 'Binongan', 'Del Monte', 'Don Mateo', 'Katipunan', 'La Fortuna', 'Limot', 'Magsaysay', 'Masayan', 'Poblacion', 'Sampaguita', 'San Gabriel', 'Santa Cruz', 'Santa Emilia', 'Sinobong']
 };
+
+export const AGUSAN_DEL_SUR_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  'Bayugan City': { lat: 8.7139, lng: 125.7481 },
+  'Bunawan': { lat: 8.3090, lng: 125.9926 },
+  'Esperanza': { lat: 8.6781, lng: 125.6508 },
+  'La Paz': { lat: 8.2817, lng: 125.8053 },
+  'Loreto': { lat: 8.1889, lng: 125.8522 },
+  'Prosperidad': { lat: 8.6019, lng: 125.9189 },
+  'Rosario': { lat: 8.3619, lng: 126.0125 },
+  'San Francisco': { lat: 8.5083, lng: 125.9789 },
+  'San Luis': { lat: 8.5447, lng: 125.7428 },
+  'Santa Josefa': { lat: 7.9867, lng: 126.0306 },
+  'Sibagat': { lat: 8.8239, lng: 125.6983 },
+  'Talacogon': { lat: 8.4497, lng: 125.7892 },
+  'Trento': { lat: 8.0492, lng: 126.0622 },
+  'Veruela': { lat: 8.0722, lng: 125.9556 },
+};
+

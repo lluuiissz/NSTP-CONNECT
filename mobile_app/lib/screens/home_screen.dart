@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../main.dart'; // supabase instance
@@ -8,7 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/notification_service.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onOpenInbox;
+  const HomeScreen({super.key, this.onOpenInbox});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -18,15 +20,97 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   bool _isMapView = false;
   List<dynamic> _activities = [];
+  Map<String, dynamic>? _activeEmergencyBroadcast;
+  RealtimeChannel? _emergencyChannel;
 
   @override
   void initState() {
     super.initState();
     _syncPendingLogs();
     _fetchActivities();
+    _fetchActiveEmergency();
+    _setupEmergencyRealtime();
     
     // Ensure FCM token is uploaded for the logged-in user
     NotificationService().refreshAndUploadToken();
+  }
+
+  @override
+  void dispose() {
+    if (_emergencyChannel != null) {
+      supabase.removeChannel(_emergencyChannel!);
+    }
+    super.dispose();
+  }
+
+  Future<void> _fetchActiveEmergency() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+
+      final userData = await supabase
+          .from('users')
+          .select('municipality')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final mun = userData?['municipality'] as String?;
+      final String orFilter;
+      if (mun != null && mun.trim().isNotEmpty) {
+        orFilter = 'target_municipality.is.null,target_municipality.ilike."${mun.trim()}"';
+      } else {
+        orFilter = 'target_municipality.is.null';
+      }
+
+      final notifs = await supabase
+          .from('notifications')
+          .select()
+          .eq('requires_attendance', true)
+          .or(orFilter)
+          .order('created_at', ascending: false)
+          .limit(1);
+
+      if (notifs.isEmpty) {
+        if (mounted) setState(() => _activeEmergencyBroadcast = null);
+        return;
+      }
+
+      final latestNotif = notifs.first;
+      final broadcastId = latestNotif['id'].toString();
+
+      // Check if user has already attended
+      final attended = await supabase
+          .from('broadcast_attendances')
+          .select('id')
+          .eq('broadcast_id', broadcastId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (mounted) {
+        setState(() {
+          _activeEmergencyBroadcast = attended == null ? latestNotif : null;
+        });
+      }
+    } catch (e) {
+      debugPrint("Active emergency fetch error: $e");
+    }
+  }
+
+  void _setupEmergencyRealtime() {
+    _emergencyChannel = supabase.channel('home_emergency_feed')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'notifications',
+        callback: (_) => _fetchActiveEmergency(),
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'broadcast_attendances',
+        callback: (_) => _fetchActiveEmergency(),
+      )
+      ..subscribe();
   }
 
   Future<void> _syncPendingLogs() async {
@@ -91,6 +175,124 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildEmergencyBanner() {
+    final notif = _activeEmergencyBroadcast!;
+    final assemblyPoint = notif['assembly_point'];
+    final targetBarangay = notif['target_barangay'];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF991B1B), Color(0xFFDC2626)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.red.shade300, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'EMERGENCY MUSTERING ALERT',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'ACTION REQUIRED',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            notif['title'] ?? 'Emergency Alert',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '📍 Assembly: ${assemblyPoint ?? targetBarangay ?? 'Check Area Details'}',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.95),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                widget.onOpenInbox?.call();
+              },
+              icon: const Icon(Icons.map, size: 16),
+              label: const Text(
+                'View Map & Respond',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF991B1B),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,6 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               setState(() => _isLoading = true);
               _fetchActivities();
+              _fetchActiveEmergency();
             },
           )
         ],
@@ -130,24 +333,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             )
-          : _activities.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.event_busy, size: 80, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No activities found near you.', 
-                        style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                )
-              : _isMapView ? _buildMapView() : _buildListView(),
+          : Column(
+              children: [
+                if (_activeEmergencyBroadcast != null) _buildEmergencyBanner(),
+                Expanded(
+                  child: _activities.isEmpty
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.event_busy, size: 80, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text('No activities found near you.', 
+                                style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        )
+                      : _isMapView ? _buildMapView() : _buildListView(),
+                ),
+              ],
+            ),
       floatingActionButton: _isMapView ? FloatingActionButton(
         onPressed: () {
           // Re-center map to current location (if implemented) or just refresh
           setState(() => _isLoading = true);
           _fetchActivities();
+          _fetchActiveEmergency();
         },
         child: const Icon(Icons.my_location),
       ) : null,
