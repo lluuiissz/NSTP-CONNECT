@@ -27,14 +27,14 @@ export default function DownloadAppPage() {
           <div className="flex items-start gap-3">
             <Info className="w-6 h-6 text-blue-400 shrink-0" />
             <div>
-              <h3 className="font-bold text-white text-sm">Version 1.0.0 (Android)</h3>
-              <p className="text-xs text-blue-200/70 mt-1">Compatible with Android 8.0 and above. iOS version coming soon.</p>
+              <h3 className="font-bold text-white text-sm">Version 1.2.0 (Android)</h3>
+              <p className="text-xs text-blue-200/70 mt-1">Includes live emergency broadcast tracking, interactive incident map &amp; turn-by-turn navigation.</p>
             </div>
           </div>
         </div>
 
         <a 
-          href="/nstp-connect.apk?v=2"
+          href="/nstp-connect.apk?v=3"
           download="NSTP-CONNECT.apk"
           className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-bold py-4 px-8 rounded-xl shadow-lg transform transition-all active:scale-95 flex justify-center items-center gap-3 text-lg mb-4"
         >
