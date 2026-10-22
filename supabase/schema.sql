@@ -66,6 +66,8 @@ CREATE TABLE public.notifications (
     target_barangay TEXT,     -- Specific barangay if applicable
     assembly_point TEXT,      -- Location/landmark where volunteers should report
     requires_attendance BOOLEAN DEFAULT TRUE,
+    lat DOUBLE PRECISION,     -- Specific pinned emergency coordinates
+    lng DOUBLE PRECISION,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

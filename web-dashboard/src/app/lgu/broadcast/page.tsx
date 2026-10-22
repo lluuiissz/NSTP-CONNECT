@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
-import { AGUSAN_DEL_SUR_LOCATIONS } from '@/lib/locations';
+import { AGUSAN_DEL_SUR_LOCATIONS, AGUSAN_DEL_SUR_COORDINATES } from '@/lib/locations';
 import { 
   Megaphone, 
   Send, 
@@ -16,8 +17,22 @@ import {
   Shield, 
   HeartHandshake, 
   BookOpen, 
-  Calendar 
+  Calendar,
+  Compass,
+  Crosshair
 } from 'lucide-react';
+
+const LocationPickerMap = dynamic(
+  () => import('@/components/Map/LocationPickerMap'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[360px] w-full bg-slate-100 rounded-2xl animate-pulse flex items-center justify-center text-slate-400 text-sm font-medium">
+        Loading Interactive Incident Map...
+      </div>
+    ),
+  }
+);
 
 interface RawUser {
   full_name: string | null;
@@ -48,6 +63,8 @@ interface BroadcastItem {
   target_barangay?: string | null;
   assembly_point?: string | null;
   requires_attendance?: boolean;
+  lat?: number | null;
+  lng?: number | null;
   created_at: string;
   attendances?: BroadcastAttendance[];
   stats?: {
@@ -68,6 +85,9 @@ export default function BroadcastPage() {
   const [targetBarangay, setTargetBarangay] = useState('');
   const [assemblyPoint, setAssemblyPoint] = useState('');
   const [requiresAttendance, setRequiresAttendance] = useState(true);
+  const [pinLat, setPinLat] = useState<number | null>(null);
+  const [pinLng, setPinLng] = useState<number | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ text: '', type: '' });
@@ -77,12 +97,16 @@ export default function BroadcastPage() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [recipientStats, setRecipientStats] = useState<{ total: number; pushEnabled: number } | null>(null);
 
+  const trimmedTarget = targetMunicipality.trim();
+  const activeMapCenter: [number, number] = targetMunicipality && AGUSAN_DEL_SUR_COORDINATES[targetMunicipality]
+    ? [AGUSAN_DEL_SUR_COORDINATES[targetMunicipality].lat, AGUSAN_DEL_SUR_COORDINATES[targetMunicipality].lng]
+    : [8.5065, 125.7562];
+
   // Modal for Viewing Attendee Roster
   const [selectedBroadcastId, setSelectedBroadcastId] = useState<string | null>(null);
   const [rosterFilter, setRosterFilter] = useState<'ALL' | 'ROTC' | 'CWTS' | 'LTS'>('ALL');
   const [searchRoster, setSearchRoster] = useState('');
 
-  const trimmedTarget = targetMunicipality.trim();
   const selectedBroadcast = recentBroadcasts.find((b) => b.id === selectedBroadcastId) || null;
 
   // Calculate statistics for a broadcast
@@ -221,6 +245,8 @@ export default function BroadcastPage() {
             target_barangay: targetBarangay.trim() === '' ? null : targetBarangay.trim(),
             assembly_point: assemblyPoint.trim() === '' ? null : assemblyPoint.trim(),
             requires_attendance: requiresAttendance,
+            lat: pinLat,
+            lng: pinLng,
           },
         ])
         .select()
@@ -258,7 +284,9 @@ export default function BroadcastPage() {
                 data: { 
                   type: 'broadcast',
                   broadcast_id: newBroadcast.id,
-                  requires_attendance: requiresAttendance ? 'true' : 'false'
+                  requires_attendance: requiresAttendance ? 'true' : 'false',
+                  lat: pinLat ? pinLat.toString() : '',
+                  lng: pinLng ? pinLng.toString() : '',
                 }
               })
             })
@@ -278,6 +306,9 @@ export default function BroadcastPage() {
       setTargetMunicipality('');
       setTargetBarangay('');
       setAssemblyPoint('');
+      setPinLat(null);
+      setPinLng(null);
+      setShowMapPicker(false);
       fetchRecentBroadcasts();
     } catch (err) {
       console.error(err);
@@ -468,6 +499,73 @@ export default function BroadcastPage() {
                 />
               </div>
             )}
+
+            {/* Interactive Incident Location Pinning */}
+            <div className="pt-3 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <div>
+                  <label className="text-xs font-bold text-gray-800 flex items-center">
+                    <Crosshair className="w-4 h-4 mr-1.5 text-red-600" />
+                    Pin Exact Incident / Evacuation Site on Map (Optional)
+                  </label>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Click anywhere on the map or drag the pin. The volunteer mobile app displays this pin with GPS routing.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMapPicker(!showMapPicker)}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-all shadow-sm flex items-center shrink-0 self-start sm:self-auto"
+                >
+                  <Compass className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                  {showMapPicker ? 'Hide Map' : (pinLat != null ? 'Adjust Pin' : 'Drop Pin on Map')}
+                </button>
+              </div>
+
+              {pinLat != null && pinLng != null && (
+                <div className="flex items-center justify-between p-2.5 bg-red-50 border border-red-200 rounded-xl mb-3 text-xs text-red-900">
+                  <div className="flex items-center">
+                    <MapPin className="w-4 h-4 mr-1.5 text-red-600 shrink-0" />
+                    <span>
+                      <strong>Pinned Coordinates:</strong> {pinLat.toFixed(5)}° N, {pinLng.toFixed(5)}° E
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPinLat(null);
+                      setPinLng(null);
+                    }}
+                    className="text-red-700 hover:text-red-900 font-bold underline ml-2 cursor-pointer"
+                  >
+                    Clear Pin
+                  </button>
+                </div>
+              )}
+
+              {showMapPicker && (
+                <div className="mt-2 space-y-2">
+                  <LocationPickerMap
+                    center={activeMapCenter}
+                    zoom={targetMunicipality ? 13 : 11}
+                    initialLat={pinLat}
+                    initialLng={pinLng}
+                    onLocationSelect={(lat, lng) => {
+                      setPinLat(lat);
+                      setPinLng(lng);
+                    }}
+                    onClear={() => {
+                      setPinLat(null);
+                      setPinLng(null);
+                    }}
+                    placeholderText="👇 Click anywhere on the map or drag the marker to pin the emergency site"
+                  />
+                  <p className="text-[11px] text-slate-500 italic">
+                    Tip: The map auto-centers on {targetMunicipality || 'Agusan del Sur'}. Zoom in to pinpoint the exact building, road, or bridge.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="text-xs text-gray-500 flex items-center">
@@ -550,6 +648,19 @@ export default function BroadcastPage() {
                           <span className="bg-amber-100 text-amber-900 text-xs font-semibold px-2.5 py-0.5 rounded-full">
                             Assembly: {b.assembly_point}
                           </span>
+                        )}
+
+                        {b.lat != null && b.lng != null && (
+                          <a
+                            href={`https://www.google.com/maps?q=${b.lat},${b.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-red-100 hover:bg-red-200 text-red-900 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center transition-colors"
+                            title="Open pinned location in Google Maps"
+                          >
+                            <Crosshair className="w-3 h-3 mr-1 text-red-600" />
+                            Pinned: {b.lat.toFixed(4)}, {b.lng.toFixed(4)}
+                          </a>
                         )}
 
                         <span className="text-gray-400 text-xs flex items-center">
